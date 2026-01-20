@@ -1,4 +1,6 @@
 // app.js
+///开始git
+///
 App({
   onLaunch() {
     wx.cloud.init({
