@@ -1,0 +1,52 @@
+<!-- 提示注意事项 -->
+<scroll-view scroll-y="true" class="scroll-container">
+<view class="announcement-container">
+  <text class="title">公告</text>
+
+<!-- 公告列表 -->
+
+  <view wx:for="{{announcements}}" wx:key="id" class="announcement-item" bindtap="viewAnnouncement" data-id="{{item.id}}">
+    <text class="announcement-title">{{item.content}}</text>
+    <text class="announcement-date">{{item.date}}</text>
+  </view>
+
+  <!-- 如果没有公告 -->
+  <view wx:if="{{announcements.length === 0}}" class="no-announcement">
+    <text>暂无公告</text>
+  </view>
+</view>
+
+<!-- 待审批招生名额变更 -->
+<view class="pending-changes-container">
+  <text class="title">待审批招生名额变更</text>
+  <block wx:for="{{pendingChanges}}" wx:key="key">
+    <view class="quota-row">
+      <text class="short-line"> <text class="bold">{{item.label}} </text> 名额变化：<text class="bold">{{item.pendingValue > 0 ? '+' : ''}}{{item.pendingValue}}</text></text>
+      <text class="short-line">剩余时间：{{item.remainingTime}}</text>
+      <button data-type="{{item.key}}" data-action="approve" bindtap="handleApproval" class="accept" wx:if="{{item.remainingTime !== '0小时0分钟'}}">确认</button>
+      <button data-type="{{item.key}}" data-action="reject" bindtap="handleApproval" class="reject" wx:if="{{item.remainingTime !== '0小时0分钟'}}">拒绝</button>
+    </view>
+  </block>
+  <view wx:if="{{pendingChanges.length === 0}}">
+    <text>暂无待审批的变更</text>
+  </view>
+</view>
+
+
+<!-- 招生名额信息 -->
+<view class="quota-section">
+  <text class="title">招生名额信息</text>
+  <block wx:for="{{quotaInfo}}" wx:key="key">
+    <view class="quota-item">
+      <text>{{item.label}}:</text>
+      <view>
+        <text >总名额: <text style="font-weight: bold;">{{item.total}}</text></text>
+        <text>已使用: <text style="font-weight: bold;">{{item.used}}</text></text>
+        <text>剩余: <text style="font-weight: bold;">{{item.remaining}}</text></text>
+      </view>
+    </view>
+  </block>
+</view>
+
+
+</scroll-view>

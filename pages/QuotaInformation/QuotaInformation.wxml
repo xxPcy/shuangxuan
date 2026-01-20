@@ -1,0 +1,111 @@
+<view class="container">
+  <view class="profile-info">
+    <view class="info-item">
+      <text class="label">姓名：</text>
+      <text class="value">{{teacher.name}}</text>
+    </view>
+    <view class="info-item">
+      <text class="label">办公室：</text>
+      <text class="value" >{{teacher.office}}</text>
+    </view>
+    <view class="info-item">
+      <text class="label">邮箱：</text>
+      <text class="value">{{teacher.email}}</text>
+    </view>
+    <view class="info-item">
+      <text class="label">研究方向：</text>
+      <text class="value">{{teacher.ezresearch}}</text>
+    </view>
+    <view class="info-item">
+      <text class="label">招生说明：</text>
+      <text class="copy-text" bindtap="copyText" data-text="{{teacher.description}}">{{teacher.description}}</text>
+    </view>
+    <!-- <button class="Stuinformation" bind:tap="showStuinfomation" >点击查看确定双选的学生</button> -->
+    <view class="line"></view>
+  </view>
+</view>
+  <!-- 个人信息补充与修改标题 -->
+  <view class="info-modify-title">
+    <text class="title">个人信息补充与修改</text>
+  </view>
+
+<scroll-view class="scroll-container">
+  <view class="changeInformation">
+  <form bindsubmit="btnSub" class="form">
+    <view class="changePassword">
+  <view class="form-item">
+      <text class="label">修改密码：</text>
+      <input class="input" type="password" value="{{inputPassword}}" bindinput="updatePassword" placeholder="请输入原密码" />
+    </view>
+    <!-- <view class="form-item">
+      <text class="label">确认密码：</text>
+      <input class="input" type="password" value="{{confirmPassword}}" bindinput="onConfirmPasswordInput" placeholder="请再次输入密码" />
+    </view> -->
+    <button class="btn-submit" bind:tap="submitPassword">修改密码</button>
+  </view>
+    <view class="form-item">
+      <text class="label">办公室：</text>
+      <input class="input" type="text" value="{{teacher.office}}" bindinput="updateOffice" placeholder="请输入办公室" />
+    </view>
+
+    <view class="form-item">
+      <text class="label">邮箱：</text>
+      <input class="input" type="text" value="{{teacher.email}}" bindinput="updateEmail" placeholder="请输入邮箱"/>
+    </view>
+
+    <view class="form-item">
+      <text class="label">研究方向：</text>
+      <textarea class="textarea" value="{{teacher.ezresearch}}" bindinput="updateEzResearch" placeholder="请输入研究方向"></textarea>
+    </view>
+
+    <view class="form-item">
+      <text class="label">招生说明：</text>
+      <textarea class="textarea" placeholder="请输入招生说明" value="{{teacher.description}}" bindinput="updateDescription"></textarea>
+    </view>
+
+    <view class="button-group">
+      <button class="btn-submit" form-type="submit">提交修改</button>
+      <button class="btn-reset" bindtap="onReset">重置内容</button>
+    </view>
+  </form>
+</view>
+</scroll-view>
+
+<!-- 显示确定双选学生的页面 -->
+<view wx:if="{{showModal}}" class="modal">
+  <view class="modal-header">
+    <text>学生详情</text>
+    <button class="close-btn" bindtap="closeStudentinformation">×</button>
+  </view>
+  
+  <view class="modal-content" wx:if="{{student != ''}}">
+    <scroll-view scroll-y="true">
+      <view wx:for="{{student}}" wx:key="index">
+        <view class="student-info-item">
+          <view class="student-name">姓名：{{item.studentName}}</view>
+          <view class="student-info">选择专业：{{item.specialized}}</view>
+          <view class="student-info">手机号：{{item.phoneNumber}}</view>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+  
+  <!-- 当没有学生数据时显示提示 -->
+  <view class="noneStu" wx:else="">暂无已确定双选关系的学生</view>
+</view>
+
+<view wx:if="{{confirmPassword}}" class="modal">
+  <view class="modal-header">
+    <text>验证新密码</text>
+    <button class="close-btn" bindtap="closePassWord">×</button>
+  </view>
+    <view class="form-item">
+      <text class="label">输入新密码：</text>
+      <input class="input" type="password"  bindinput="inputNewPassword" placeholder="请输入新密码" />
+    </view>
+    <view class="form-item">
+      <text class="label">确认新密码密码：</text>
+      <input class="input" type="password"  bindinput="inputNewPassworddouble" placeholder="请再次输入新密码" />
+    </view>
+    <button bindtap="confirmNewPassword">确认</button>
+</view>

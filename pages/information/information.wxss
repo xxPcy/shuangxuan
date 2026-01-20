@@ -1,0 +1,166 @@
+
+.profile {
+  display: inline-block;
+  width: 160rpx;
+  height: 100rpx; /* 根据需要调整大小 */
+  /* margin-right: 0rpx; 图片和文本之间的间距 */
+  padding-top: -10rpx;
+  flex-shrink: 0;
+}
+
+.profile-img {
+  display: flex;
+  justify-self: start;
+  width: 150rpx;
+  height: 150rpx;
+  border-radius: 90%; /* 可选：使图片圆形 */
+  margin-top: -20rpx;
+}
+
+
+.details {
+  display: inline-block;
+  vertical-align: top;
+}
+.short-text{
+  display: inline-block;
+  vertical-align: top;
+  line-height: 22rpx;
+  white-space: pre-line; 
+  padding-left: 0rpx;
+  
+}
+button{
+  margin-top: 20rpx;
+}
+.container {
+  height: 5rpx;
+  height: auto; /* 允许容器高度根据内容自动调整 */
+  padding-top: 0; /* 去掉顶部的内边距 */
+  margin-top: 0; /* 去掉顶部的外边距 */
+}
+.box{
+  text-align: center;
+}
+.note{
+  color:rgba(5, 5, 5, 0.342);
+}
+.buttom{
+  border-bottom: 1px solid rgb(190, 178, 178); /* 设置黑色下划线 */
+  padding-bottom: 5px; /* 调整下划线与文本的间距 */
+}
+.scroll-container{
+  padding-bottom: 160rpx; /* 保留底部空间 */
+  height: auto; /* 确保滚动区域高度不会限制公告容器 */
+ 
+}
+.search-container { 
+  padding: 10px;
+  background-color: #f9f9f9;
+}
+
+.search-input {
+  width: 100%;
+  height: 40px;
+  border: 1px solid #ccc;
+  padding-left: 10px;
+  margin-left: -6px;
+  border-radius: 4px;
+  font-size: 16px;
+} 
+
+/* 公告标题 */
+.announcement-header {
+  font-size: 18px;
+  font-weight: bold;
+  margin-top: 0;
+  margin-bottom: 10px;
+  text-align: center;
+  color: #333;
+}
+
+/* 公告列表容器 */
+.announcement-container {
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 25rpx;
+  background-color: #ffffff;
+  box-shadow: 0 15rpx 30rpx rgba(0, 0, 0, 0.12);
+  margin-bottom: 20px;
+  max-width: 95%;
+}
+
+/* 公告项 */
+.announcement-item {
+  display: flex;
+  justify-content: space-between; /* 使标题和日期在两端 */
+  align-items: center; /* 垂直居中对齐 */
+  padding: 15rpx 0;
+  border-bottom: 1px solid #eee;
+  transition: transform 0.3s, box-shadow 0.3s;
+  width: 100%; /* 确保占满整个宽度 */
+}
+
+/* 鼠标悬停效果 */
+.announcement-item:hover {
+  transform: translateY(-5rpx);
+  box-shadow: 0 10rpx 20rpx rgba(0, 0, 0, 0.1);
+}
+
+/* 公告标题 */
+.announcement-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #333;
+  flex: 1; /* 占据剩余空间，使日期靠右 */
+  white-space: nowrap; /* 防止标题换行 */
+  text-overflow: ellipsis; /* 如果标题过长，使用省略号 */
+  overflow: hidden; /* 超出部分隐藏 */
+}
+
+/* 公告日期 */
+.announcement-date {
+  font-size: 12px;
+  color: #999;
+  margin-left: 10px;
+  white-space: nowrap;
+}
+
+/* 如果没有公告 */
+.no-announcement {
+  text-align: center;
+  padding: 20px;
+  font-size: 14px;
+  color: #999;
+}
+
+.research{
+  font-size: 16px;
+  color: #333;
+  overflow: hidden; /*  超出部分隐藏 */
+  display: -webkit-box; 
+  -webkit-box-orient: vertical;  
+  -webkit-line-clamp: 1; /*  最多显示 1 行，超出部分显示省略号 */
+  text-overflow: ellipsis;
+  min-height: 20px; /*  设定固定高度，确保所有研究方向区域高度一致 */
+  line-height: 23px; /*  控制行间距，让 2 行文本刚好填满高度 */
+  margin-top: 15px;
+  margin-bottom: 15px;
+}
+.info-container {
+  flex-grow: 1;  /*  让文字区域占满剩余空间 */
+  max-width: calc(100% - 80px); /*  避免信息过长挤压布局 */
+  padding: 0px;
+}
+
+.name, .email {
+  font-size: 16px;
+  color: #333;
+}
+.profile-container {
+  display: flex;  /*  让头像和信息横向排列 */
+  align-items: center;  /*  垂直居中 */
+  gap: 8px;  /*  头像与文字间距 */
+}

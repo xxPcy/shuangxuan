@@ -1,0 +1,67 @@
+<!--pages/land/land.wxml-->
+<!-- 第一部分-登录 -->
+<view class='gdut'>
+  <image src="/image/gdut2.png" class="gdutimage"></image>
+</view>
+
+
+<view >
+  <view class="header">
+    <view class="title">请登录</view>
+    <view class="info">Please Login Your Account</view>
+  </view>
+</view>
+<!-- 实现身份选择 -->
+<view class="login-container"> 
+  <picker mode="selector" range="{{ ['学生', '导师','管理员'] }}" bindchange="identityChange">
+    <view class="picker">
+      <view>选择身份</view>
+      <image src="/image/down.png" class="choose" mode=""/>
+       <!-- {{ identity }} -->
+    </view>
+  </picker>
+  <view class="selected-identity">{{ selectedIdentity }}</view>
+</view>
+<!-- 找回密码
+<view wx:elif="{{islogin==2}}">
+  <view class="header">
+    <view calss="title">找回密码</view>
+    <view class="info">Retrieve the password</view>
+  </view>
+</view>
+注册页面 -->
+<!-- <view wx:else="{{islogin==3}}">
+  <view class="header">
+    <view calss="title">请注册</view>
+    <view class="info">Please Register Your Account</view>
+  </view>
+</view> -->
+
+<!-- 第二部分 -->
+<!-- 登录 -->
+
+  <view class="input1">
+    <view class="name">姓名
+    <input class="inputname" type="text" bindinput="inputiName" maxlength="30" placeholder="请输入姓名" value="{{strloginName}}"/>
+    </view>
+  <view class="account">工号
+    <input class="inputId" type="text" bindinput="inputiphone1" maxlength="30" placeholder="请输入准考证号" value="{{strloginUser}}"/>
+    </view>
+     <view class="word">密码
+     <view class="password-container">
+         <input type="{{passwordVisible ? 'text' : 'password'}}" bindinput="password1"  placeholder="请输入密码" value="{{strloginpassword}}"/>
+    <!-- <button bindtap="togglePasswordVisibility" class="password-btn">
+    {{passwordVisible ? '隐藏' : '显示'}}
+    </button> -->
+     </view>
+
+    </view>
+  </view>
+  <view class="remember">
+  <!-- <switch checked="{{switchChecked}}" bindchange="bindswitchchange" type="checkbox" bindswitcheck="switchChecked">记住密码</switch> -->
+  </view>
+  <view class="aniu"> 
+  <button bind:tap="land" class="two" type="primary" color="#3d7ef9" disabled="{{loginbtnstate}}">登录</button>
+  <view class="bottom"></view>
+  </view>
+  <view class="down"></view>

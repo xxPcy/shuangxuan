@@ -1,0 +1,30 @@
+/* custom-tab-bar/index.wxss */
+.tabBar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 48px;
+  background: white;
+  display: flex;
+  padding-bottom: env(safe-area-inset-bottom);
+  border-top: 1px solid #c1c1c1;
+}
+
+.tabBarItem {
+  flex: 1;
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+}
+
+.itemImage {
+  width: 26px;
+  height: 26px;
+}
+
+.itemTitle {
+  font-size: 10px;
+}

@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "管理员页面",
+  "navigationBarBackgroundColor": "#f3514f",
+  "navigationBarTextStyle": "white",
+  "backgroundColor": "#f4f4f4",
+  "enablePullDownRefresh": true
+  
+}

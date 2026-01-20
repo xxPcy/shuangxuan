@@ -1,0 +1,53 @@
+
+<view wx:if="{{status=='pending'}}" class="pending">
+  <text>您已申请导师</text>
+  <view>
+    <text>导师姓名：{{preselection[0]}}</text>
+    <text>专业名称：{{specialized}}</text>
+  </view>
+  <button bindtap="cancel">取消申请</button>
+</view>
+
+<view wx:elif="{{status=='chosed'}}" class="chosed">
+  <text>您已成功选择导师</text>
+  <view>
+    <text>导师姓名：{{selected}}</text>
+    <text>专业名称：{{specialized}}</text>
+  </view>
+</view>
+
+<view wx:else class="no-apply">
+  <text>您还未申请导师</text>
+</view>
+
+<!-- 消息列表 -->
+<scroll-view scroll-y="true">
+  <view class="message-container" wx:if="{{rejectionMessages.length > 0}}">
+  <text class="message-title">导师拒绝消息</text>
+  <block wx:for="{{rejectionMessages}}" wx:key="index">
+    <view class="message-item" bindtap="showMessageDetails" data-index="{{index}}">
+      <view class="message-header">
+        <text class="teacher-name">导师：{{item.teacherName}}</text>
+        <text class="timestamp">{{item.timestamp}}</text>
+      </view>
+      <text class="message-summary">拒绝理由：点击查看详情</text>
+    </view>
+  </block>
+</view>
+<view wx:else>
+  <text class="no-messages">暂无拒绝消息</text>
+</view>
+</scroll-view>
+
+
+<!-- 模态框：显示详细拒绝理由 -->
+<view class="modal" wx:if="{{showModal}}">
+  <view class="modal-content">
+    <text class="modal-title">拒绝详情\n</text>
+    <text>导师：{{selectedMessage.teacherName}}\n</text>
+    <text>理由：{{selectedMessage.reason}}</text>
+    <button bindtap="closeModal">关闭</button>
+  </view>
+</view>
+
+

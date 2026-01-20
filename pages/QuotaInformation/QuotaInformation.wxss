@@ -1,0 +1,276 @@
+page {
+  background-color: #f7f7f7; /* 浅灰色背景 */
+}
+/* 滚动容器 */
+.scroll-container {
+  padding-bottom: 170rpx; /* 增加底部间距，避免内容遮挡 */
+  width: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+  height: auto; /* 确保滚动区域高度不会限制公告容器 */
+}
+
+
+
+/* 容器样式 */
+.container {
+  background-color: #ffffff; /* 白色背景 */
+  border-radius: 30rpx; /* 圆角 */
+  padding: 20rpx;
+  margin-top: 10rpx;
+  box-shadow: 0 5rpx 10rpx rgba(0, 0, 0, 0.1); /* 柔和阴影 */
+}
+
+/* 个人信息补充与修改标题样式 */
+.info-modify-title {
+  text-align: center;
+  padding: 20rpx;
+  margin-top: 30rpx;
+}
+
+.info-modify-title .title {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #333;
+  padding-bottom: 10rpx;
+  border-bottom: 2px solid #ccc; /* 添加下划线 */
+}
+.profile-info {
+  margin-bottom: 30px;
+}
+
+.info-item {
+  /* display: flex; */
+  margin-bottom: 15px;
+  /* align-items: flex-start; */
+}
+
+/* 修改部分容器样式 */
+.changeInformation {
+  background-color: #ffffff; /* 背景色为白色 */
+  border-radius: 30rpx; /* 圆角 */
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.1); /* 阴影效果 */
+  padding: 20rpx;
+  margin-top: 30rpx;
+}
+
+/* 修改密码输入框部分 */
+.changePassword {
+  margin-bottom: 30rpx;
+}
+
+/* 每个表单项的样式 */
+.form-item {
+  margin-bottom: 25rpx;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 标签样式 */
+.form-item .label {
+  font-size: 29rpx;
+  color: rgb(53, 53, 53); /* 标签使用深灰色 */
+  margin-bottom: 10rpx;
+}
+
+/* 输入框样式 */
+.input, .textarea {
+  width: 100%;
+  padding: 0px 10px; /* 调整内边距 */
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+  color: #333;
+  box-sizing: border-box;
+  margin-top: 5px;
+  line-height: 1.5; /* 设置行高，确保文字居中 */
+  display: inline-block; /* 确保输入框按文本框行为渲染 */
+  vertical-align: middle; /* 垂直对齐 */
+  word-wrap: break-word; /* 防止文本超出框外，强制换行 */
+  white-space: normal; /* 确保长文本可以换行 */
+}
+
+.input:focus, .textarea:focus {
+  border-color: #3e9e49;
+  outline: none;
+}
+
+/* 文本框样式 */
+.textarea {
+  height: 75px;
+  resize: none; /* 禁止用户调整文本框大小 */
+  overflow-y: auto; /* 允许垂直滚动 */
+  word-wrap: break-word;
+  white-space: normal;
+}
+.value{
+  word-break: break-word;  /*  允许单词内换行 */
+  white-space: normal;     /*  让文本正常换行 */
+  overflow-wrap: break-word; /*  让长单词也能断行 */
+}
+.copy-text{
+  word-break: break-word;  /*  允许单词内换行 */
+  white-space: normal;     /*  让文本正常换行 */
+  overflow-wrap: break-word; /*  让长单词也能断行 */
+  color: #37587c; /* 让文本颜色变蓝，提示用户可以点击 */
+  text-decoration: underline; /* 添加下划线，增强点击感 */
+  cursor: pointer; /* 提示用户可以点击 */
+}
+/* 聚焦时的效果 */
+.input:focus, .textarea:focus {
+  border-color: #3e9e49; /* 聚焦时，边框颜色变为绿色 */
+  outline: none;
+}
+
+
+/* 按钮组样式 */
+.button-group {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+/* 按钮样式 */
+.btn-submit {
+  background-color: #3e9e49;
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  flex-grow: 1;
+}
+
+.btn-submit:hover {
+  background-color: #338c3b;
+}
+
+.btn-reset {
+  background-color: #f1f1f1;
+  color: #333;
+  border: 1px solid #ccc;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  flex-grow: 1;
+}
+
+.btn-reset:hover {
+  background-color: #e6e6e6;
+}
+button {
+  width: 100%; /* 按钮宽度自适应父容器 */
+  padding: 12rpx; /* 按钮内边距，确保按钮内容清晰 */
+  font-size: 14px; /* 合适的字体大小，不显得过大 */
+  background-color: #64b323; /* 按钮背景色（绿色） */
+  color: rgb(255, 255, 255); /* 按钮字体颜色 */
+  border: none; /* 去除默认边框 */
+  border-radius: 20rpx; /* 圆角按钮 */
+  text-align: center; /* 确保文字居中 */
+  cursor: pointer; /* 鼠标悬浮时显示为可点击的样式 */
+  box-sizing: border-box; /* 包含内边距和边框在内 */
+  margin-top: 20rpx; /* 上方间距，确保按钮和其他元素之间有适当的空隙 */
+  transition: background-color 0.3s; /* 鼠标悬停时的平滑过渡效果 */
+}
+
+button:hover {
+  background-color: #45a049; /* 鼠标悬停时按钮的背景颜色变化 */
+}
+
+/* 按钮文本样式 */
+button.text {
+  font-size: 16px; /* 可以根据需要微调字体大小 */
+  line-height: 1.5; /* 行高，确保文本的垂直对齐 */
+}
+/* 显示确定双选关系的学生 */
+.modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #ffffff;
+  border-radius: 20rpx;
+  box-shadow: 0 10rpx 20rpx rgba(0, 0, 0, 0.2);
+  width: 90%;
+  max-width: 500rpx;
+  padding: 30rpx;
+  z-index: 1000;
+  max-height: 80vh; /* 限制 modal 的最大高度 */
+  overflow: hidden; /* 防止 modal 超出屏幕 */
+}
+
+/* header 样式 */
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 36rpx;
+  font-weight: bold;
+  margin-bottom: 20rpx;
+  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 10rpx;
+}
+
+/* 关闭按钮样式 */
+.modal .close-btn {
+  background-color: transparent;
+  border: none;
+  font-size: 32rpx;
+  font-weight: bold;
+  cursor: pointer;
+  color: #888888;
+  line-height: 1;
+  position: absolute; /* 绝对定位 */
+  top: 0;
+  right: 0;
+  transform: translate(42%, -20%);
+  font-size: 40rpx;
+  z-index: 1001;
+}
+
+/* scroll-view 样式，允许内容滚动 */
+/* 设置 modal 内容区域样式 */
+.modal-content {
+  max-height: 60vh; /* 限制内容区域的最大高度 */
+  overflow-y: auto; /* 使内容可滚动 */
+  padding: 20rpx; /* 添加内边距，确保文本不与边界接触 */
+}
+
+/* 学生信息文本样式 */
+.modal-content view {
+  margin-bottom: 20rpx; /* 每个学生信息项之间的间距 */
+  font-size: 28rpx; /* 设置字体大小，保证可读性 */
+  line-height: 1.6; /* 设置行高，确保文字垂直对齐，不会显得拥挤 */
+  color: #333333; /* 使用深色字体，增加可读性 */
+}
+
+/* 姓名样式 */
+.modal-content .student-name {
+  font-weight: bold; /* 姓名加粗 */
+  color: #374438; 
+}
+
+/* 其他信息项样式 */
+.modal-content .student-info {
+  color: #666666; 
+  font-size: 26rpx; 
+}
+
+/* 为每个学生信息项添加边框和背景色，使其更加分明 */
+.modal-content .student-info-item {
+  background-color: #f5f5f5; 
+  padding: 15rpx; 
+  border-radius: 15rpx; 
+  margin-bottom: 15rpx; 
+  box-shadow: 0 4rpx 6rpx rgba(0, 0, 0, 0.1);
+}
+
+/* 提示文本样式：当没有学生信息时显示 */
+.noneStu {
+  font-size: 28rpx;
+  color: #888888;
+  text-align: center;
+  margin-top: 20rpx;
+}

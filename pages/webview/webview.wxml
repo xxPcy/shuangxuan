@@ -1,0 +1,2 @@
+<!--pages/webview/webview.wxml-->
+<web-view src="https://teacher.gdut.edu.cn/weifengzhong/zh_CN/index/203397/list/index.htm" />

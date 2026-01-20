@@ -1,0 +1,310 @@
+page {
+  background-color: #f7f7f7;
+}
+.container {
+  padding: 20rpx;
+}
+.scroll-container{
+  margin-top: 20rpx;
+  padding-bottom: 150rpx; /* 增加底部间距，避免内容遮挡 */
+  width: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+  height: auto; /* 确保滚动区域高度不会限制公告容器 */
+}
+.title {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 20rpx;
+  text-align: center;
+}
+
+.student-item {
+  margin-bottom: 15rpx;
+  padding: 20rpx;
+  border: 1px solid #e0e0e0;
+  border-radius: 15rpx;
+  background-color: #ffffff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+ 
+}
+.student-item view {
+  margin-bottom: 5rpx;
+}
+button {
+  margin-top: 10rpx;
+}
+.textarea{
+  padding-right: 0px;
+}
+.mentions {
+  font-size: 27rpx; /* 设置文字大小 */
+  color: rgb(15, 15, 15); /* 设置文字颜色 */
+  text-align: start; /* 水平居中 */
+  display: block; /* 确保元素是块级元素，方便应用 text-align */
+  margin-bottom: 15rpx; /* 设置下边距，避免与按钮重叠 */
+}
+
+/* 学生详情弹窗 */
+.modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #ffffff;
+  border-radius: 20rpx;
+  box-shadow: 0 10rpx 20rpx rgba(0, 0, 0, 0.2);
+  width: 90%;
+  max-width: 500rpx;
+  padding: 30rpx;
+  z-index: 1000;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 36rpx;
+  font-weight: bold;
+  margin-bottom: 20rpx;
+  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 10rpx;
+}
+
+.close-btn {
+  background-color: transparent;
+  border: none;
+  font-size: 32rpx;
+  font-weight: bold;
+  cursor: pointer;
+  color: #888888;
+  line-height: 1;
+}
+
+/* 关闭按钮 */
+.close-btn {
+  position: absolute; /* 绝对定位 */
+  top: 0;
+  right: 0;
+  transform: translate(42%, -20%); /* 修正位置，让按钮位于边界外 */
+  font-size: 40rpx;
+  color: #888;
+  background: none;
+  border: none;
+  cursor: pointer;
+  z-index: 1001;
+}
+
+.modal-content view {
+  margin-bottom: 15rpx;
+  font-size: 28rpx;
+  color: #333333;
+}
+
+.actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20rpx;
+}
+
+.actions button {
+  flex: 1;
+  margin: 0 10rpx;
+  padding: 15rpx 0;
+  border-radius: 10rpx;
+  border: none;
+  font-size: 28rpx;
+}
+
+.actions button:first-child {
+  background-color: #6ee238;
+  color: #282c25;
+}
+
+.actions button:last-child {
+  background-color: #ff4d4f;
+  color: white;
+}
+
+/* 拒绝理由弹窗 */
+.reject-reason-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #ffffff;
+  border-radius: 20rpx;
+  box-shadow: 0 10rpx 20rpx rgba(0, 0, 0, 0.2);
+  width: 90%;
+  max-width: 500rpx;
+  padding: 30rpx;
+  z-index: 1000;
+}
+
+.reject-reason-modal .modal-content {
+  font-size: 28rpx;
+  color: #333333;
+  margin-bottom: 20rpx;
+}
+
+textarea {
+  width: 100%;
+  height: 150rpx;
+  border: 1px solid #e0e0e0;
+  border-radius: 10rpx;
+  padding: 15rpx;
+  font-size: 28rpx;
+  color: #333333;
+  resize: none;
+  background-color: #f9f9f9;
+}
+
+textarea:focus {
+  border-color: #007aff;
+}
+
+.reject-reason-modal .actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20rpx;
+}
+
+.reject-reason-modal .actions button {
+  flex: 1;
+  margin: 0 10rpx;
+  padding: 15rpx 0;
+  border-radius: 10rpx;
+  border: none;
+  font-size: 28rpx;
+}
+
+.reject-reason-modal .actions button:first-child {
+  background-color: #f0f0f0;
+  color: #1ab84e;
+}
+
+.reject-reason-modal .actions button:last-child {
+  background-color: #ff4d4f;
+  color: white;
+}
+
+.selectphoneNumber{
+  user-select: all;
+}
+
+
+
+/* 显示确定双选关系的学生 */
+.page {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #ffffff;
+  border-radius: 20rpx;
+  box-shadow: 0 10rpx 20rpx rgba(0, 0, 0, 0.2);
+  width: 90%;
+  max-width: 500rpx;
+  padding: 30rpx;
+  z-index: 1000;
+  max-height: 80vh; /* 限制 modal 的最大高度 */
+  overflow: hidden; /* 防止 modal 超出屏幕 */
+}
+
+/* header 样式 */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 36rpx;
+  font-weight: bold;
+  margin-bottom: 20rpx;
+  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 10rpx;
+}
+
+/* 关闭按钮样式 */
+.page .close-btn {
+  background-color: transparent;
+  border: none;
+  font-size: 32rpx;
+  font-weight: bold;
+  cursor: pointer;
+  color: #888888;
+  line-height: 1;
+  position: absolute; /* 绝对定位 */
+  top: 0;
+  right: 0;
+  transform: translate(42%, -20%);
+  font-size: 40rpx;
+  z-index: 1001;
+}
+
+/* scroll-view 样式，允许内容滚动 */
+/* 设置 modal 内容区域样式 */
+.page-content {
+  max-height: 60vh; /* 限制内容区域的最大高度 */
+  overflow-y: auto; /* 使内容可滚动 */
+  padding: 20rpx; /* 添加内边距，确保文本不与边界接触 */
+}
+
+/* 学生信息文本样式 */
+.page-content view {
+  margin-bottom: 20rpx; /* 每个学生信息项之间的间距 */
+  font-size: 28rpx; /* 设置字体大小，保证可读性 */
+  line-height: 1.6; /* 设置行高，确保文字垂直对齐，不会显得拥挤 */
+  color: #333333; /* 使用深色字体，增加可读性 */
+}
+
+/* 姓名样式 */
+.page-content .student-name {
+  font-weight: bold; /* 姓名加粗 */
+  color: #374438; 
+}
+
+/* 其他信息项样式 */
+.page-content .student-info {
+  color: #666666; 
+  font-size: 26rpx; 
+}
+
+/* 为每个学生信息项添加边框和背景色，使其更加分明 */
+.page-content .student-info-item {
+  background-color: #f5f5f5; 
+  padding: 15rpx; 
+  border-radius: 15rpx; 
+  margin-bottom: 15rpx; 
+  box-shadow: 0 4rpx 6rpx rgba(0, 0, 0, 0.1);
+}
+
+/* 提示文本样式：当没有学生信息时显示 */
+.noneStu {
+  font-size: 28rpx;
+  color: #888888;
+  text-align: center;
+  margin-top: 20rpx;
+}
+
+.Stuinformation{
+  width: 100%; /* 按钮宽度自适应父容器 */
+  padding: 12rpx; /* 按钮内边距，确保按钮内容清晰 */
+  font-size: 14px; /* 合适的字体大小，不显得过大 */
+  background-color: #64b323; /* 按钮背景色（绿色） */
+  color: rgb(255, 255, 255); /* 按钮字体颜色 */
+  border: none; /* 去除默认边框 */
+  border-radius: 20rpx; /* 圆角按钮 */
+  text-align: center; /* 确保文字居中 */
+  cursor: pointer; /* 鼠标悬浮时显示为可点击的样式 */
+  box-sizing: border-box; /* 包含内边距和边框在内 */
+  margin-top: 20rpx; /* 上方间距，确保按钮和其他元素之间有适当的空隙 */
+  transition: background-color 0.3s; /* 鼠标悬停时的平滑过渡效果 */
+}
+.Stuinformation:hover {
+  background-color: #2c8031; /* 鼠标悬停时按钮的背景颜色变化 */
+}
+/* 按钮文本样式 */
+button .text {
+  font-size: 16px; /* 可以根据需要微调字体大小 */
+  line-height: 1.5; /* 行高，确保文本的垂直对齐 */
+}

@@ -1,0 +1,637 @@
+
+/* 滚动容器 */
+.scroll-container {
+  padding-bottom: 170rpx; /* 增加底部间距，避免内容遮挡 */
+  width: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+  height: auto; /* 确保滚动区域高度不会限制公告容器 */
+}
+
+/* 公告输入框样式 */
+textarea {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #333;
+  box-sizing: border-box;
+  min-height: 120px; /* 保证足够的高度 */
+  resize: vertical; /* 允许垂直调整大小 */
+}
+/* 公告类别选择框 */
+.picker {
+  display: flex;
+  justify-content: center;  /* 水平居中 */
+  align-items: center;      /* 垂直居中 */
+  padding: 0px;
+  background-color: #f7f7f7;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  height: 30px;             /* 设置picker的高度 */
+  margin-bottom: 20rpx;
+}
+.picker text {
+  font-size: 15px;
+  color: #555;
+}
+
+
+.announcement-item text {
+  font-size: 14px;
+  color: #555;
+}
+.cancel{
+  padding: 12px 25px;
+  font-size: 16px;
+  color: rgb(3, 3, 3);
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  background-color: #ebe9e9;
+}
+/* 已发布公告展示部分 */
+.message-container{
+  padding: 0rpx;
+}
+.message-title{
+  display: block;
+  text-align: center;
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 10px;
+  margin-top: 20rpx;
+}
+.announcement-item {
+  background-color: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  padding: 10px;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+}
+.timestamp{
+  font-size: 12px;
+  color: #888;
+}
+.container{
+  background-color: #ffffff; /* 白色背景 */
+  border-radius: 30rpx; /* 圆角 */
+  padding: 20rpx;
+  margin-top: 10rpx;
+  box-shadow: 0 5rpx 10rpx rgba(0, 0, 0, 0.1); /* 柔和阴影 */
+}
+/* 模态框样式 */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+}
+
+.modal-content {
+  background: white;
+  padding: 30rpx;
+  border-radius: 16rpx;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 8rpx 20rpx rgba(0, 0, 0, 0.2);
+  animation: fadeIn 0.3s;
+  position: relative;
+}
+
+/* 模态框关闭按钮 */
+.modal-close {
+  position: absolute;
+  top: 10rpx;
+  right: 10rpx;
+  width: 40rpx;
+  height: 40rpx;
+  background-color: #ddd;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 24rpx;
+  color: #333;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.modal-close:hover {
+  background-color: #bbb;
+}
+
+.modal-close:active {
+  background-color: #999;
+}
+/* 模态框淡入效果 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+/* 输入框样式 */
+textarea {
+  width: 100%;
+  height: 200rpx;
+  margin-bottom: 20rpx;
+  padding: 20rpx;
+  border: 1px solid #ddd;
+  border-radius: 10rpx;
+  background-color: #fff;
+  font-size: 28rpx;
+  box-sizing: border-box;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+textarea:focus {
+  border-color: #3d7ef9;
+  box-shadow: 0 0 8rpx rgba(61, 126, 249, 0.5);
+  outline: none;
+}
+/* 每个招生名额项 */
+.quota-row {
+  display: flex;
+  flex-direction: column; /* 垂直排列 */
+  justify-content: space-between;  /* 在水平方向上平分空间 */
+  align-items: center; /* 垂直方向上居中对齐 */
+  margin-bottom: 15rpx; /* 下边距 */
+  padding: 12rpx; /* 内边距 */
+  background-color: #fff; /* 白色背景 */
+  border-radius: 8px; /* 圆角效果 */
+  box-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.1); /* 轻微阴影 */
+  font-size: 16px;
+  color: #333; /* 深色字体 */
+}
+
+/* 标签文字样式 */
+.quota-row text {
+  font-size: 16px;
+  color: #333; /* 深色文字 */
+  margin-bottom: 8rpx; /* 每个子项之间的间距 */
+  margin: 0rpx 3rpx;
+}
+
+/* 数字信息的文本样式 */
+.quota-row view {
+  font-size: 14px;
+  color: #555; /* 较浅的灰色 */
+  display: flex;
+  justify-content: space-between; /* 让文本左右对齐 */
+}
+
+/* 增加数值的颜色和字体 */
+.quota-row view text {
+  font-weight: normal;
+}
+
+/* 弹性布局 */
+.quota-row view {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* 居中显示文本 */
+.quota-row text {
+  text-align: center;
+}
+
+.dialog-overlay {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #ffffff;
+  border-radius: 20rpx;
+  box-shadow: 0 10rpx 20rpx rgba(0, 0, 0, 0.2);
+  width: 90%;
+  max-width: 500rpx;
+  padding: 30rpx;
+  z-index: 10001;
+  max-height: 80vh; /* 限制 modal 的最大高度 */
+  overflow: hidden; /* 防止 modal 超出屏幕 */
+}
+/* 学生信息文本样式 */
+.dialog-overlay view {
+  margin-bottom: 20rpx; /* 每个学生信息项之间的间距 */
+  font-size: 28rpx; /* 设置字体大小，保证可读性 */
+  line-height: 1.6; /* 设置行高，确保文字垂直对齐，不会显得拥挤 */
+  color: #333333; /* 使用深色字体，增加可读性 */
+}
+.dialog-overlay .close-btn {
+  background-color: transparent;
+  border: none;
+  font-size: 32rpx;
+  font-weight: bold;
+  cursor: pointer;
+  color: #888888;
+  line-height: 1;
+  position: absolute; /* 绝对定位 */
+  top: 0;
+  right: 0;
+  transform: translate(42%, -20%);
+  font-size: 40rpx;
+  z-index: 1001;
+}
+/* header 样式 */
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 36rpx;
+  font-weight: bold;
+  margin-bottom: 20rpx;
+  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 10rpx;
+}
+.Unbinding{
+  color: rgb(248, 248, 248);
+  background-color: rgb(224, 40, 7);
+  border-radius: 30rpx;
+}
+.search-input{
+  width: 100%;
+  padding: 0px 10px; /* 调整内边距 */
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+  color: #333;
+  box-sizing: border-box;
+  margin-top: 5px;
+  line-height: 1.5; /* 设置行高，确保文字居中 */
+  display: inline-block; /* 确保输入框按文本框行为渲染 */
+  vertical-align: middle; /* 垂直对齐 */
+  word-wrap: break-word; /* 防止文本超出框外，强制换行 */
+  white-space: normal; /* 确保长文本可以换行 */
+}
+/* 按钮组容器样式 */
+.button-group {
+  display: flex;
+  justify-content: space-around;  /* 水平均匀分布按钮 */
+  flex-wrap: wrap;  /* 如果按钮过多，自动换行 */
+  margin-top: 30rpx;  /* 给按钮组上方留出空间 */
+  gap: 15rpx;  /* 按钮之间的间隔 */
+}
+
+/* 按钮样式 */
+.button-group button {
+  padding: 12rpx 20rpx;  /* 按钮内边距 */
+  font-size: 25rpx;  /* 按钮文字大小 */
+  border-radius: 30rpx;  /* 按钮圆角效果 */
+  background-color: #4c89ce;  /* 按钮背景色 */
+  color: #fff;  /* 按钮文字颜色 */
+  border: none;  /* 去除默认边框 */
+  cursor: pointer;  /* 鼠标悬停时显示为可点击的样式 */
+  transition: background-color 0.3s, transform 0.2s;  /* 添加过渡动画效果 */
+  flex-basis: 45%;  /* 让每个按钮有适当宽度，支持响应式布局 */
+}
+
+/* 按钮悬停效果 */
+.button-group button:hover {
+  background-color: #338c3b;  /* 鼠标悬停时按钮的背景色 */
+  transform: translateY(-2rpx);  /* 悬停时按钮略微上浮 */
+}
+
+/* 按钮文本样式 */
+.button-group button span {
+  font-size: 16rpx;  /* 按钮文本大小 */
+  line-height: 1.5;  /* 行高，确保文本的垂直对齐 */
+}
+
+.mention{
+  display: flex;
+  justify-content: space-between; /* 将子元素均匀分布在两端 */
+  align-items: center; /* 垂直居中对齐 */
+  padding: 10px;
+  border: 1px solid #ccc; /* 给整个项加边框 */
+  border-radius: 8px; /* 圆角边框 */
+  /* background-color: #ffffff; 背景颜色 */
+}
+
+.meniton text{
+  display: block;
+  text-align: start;
+  width: auto;
+}
+/* 导师信息文本展示 */
+.showTeachermention {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #ffffff;
+  border-radius: 20rpx;
+  box-shadow: 0 10rpx 20rpx rgba(0, 0, 0, 0.2);
+  width: 90%;
+  max-width: 500rpx;
+  padding: 30rpx;
+  z-index: 10001;
+  max-height: 50vh; /* 限制 modal 的最大高度 */
+  overflow: hidden; /* 防止 modal 超出屏幕 */
+}
+/* 学生信息滚轮展示 */
+.showTeachermention scroll-view{
+  margin-bottom: 100px;
+}
+/* 学生信息文本样式 */
+.showTeachermention view {
+  margin-bottom: 20rpx; /* 每个学生信息项之间的间距 */
+  font-size: 28rpx; /* 设置字体大小，保证可读性 */
+  line-height: 1.6; /* 设置行高，确保文字垂直对齐，不会显得拥挤 */
+  color: #333333; /* 使用深色字体，增加可读性 */
+}
+.showTeachermention .close-btn {
+  background-color: transparent;
+  border: none;
+  font-weight: bold;
+  cursor: pointer;
+  color: #888888;
+  line-height: 1;
+  position: absolute; /* 绝对定位 */
+  top: 0;
+  right: 0;
+  transform: translate(42%, -20%);
+  font-size: 40rpx;
+  z-index: 1001;
+}
+.searchteacher-container{
+  padding: 20rpx;
+  background-color: #ffffff;
+  border-radius: 20rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.1);
+  margin: 20rpx;
+  font-family: Arial, sans-serif;
+}
+.searchteacher-container .close-btn {
+  background-color: transparent;
+  border: none;
+  font-size: 32rpx;
+  font-weight: bold;
+  cursor: pointer;
+  color: #888888;
+  line-height: 1;
+  position: absolute; /* 绝对定位 */
+  top: 0;
+  right: 0;
+  transform: translate(38%, 0%);
+  font-size: 40rpx;
+  z-index: 1001;
+}
+.popup-content{
+  max-height: 60vh; /* 限制内容区域的最大高度 */
+  overflow-y: auto; /* 使内容可滚动 */
+  padding: 20rpx; /* 添加内边距，确保文本不与边界接触 */
+}
+.teacheer-header text{
+  display: block;
+  font-weight: bold; /* 加粗 */
+}
+.searchStu ,.searchTec {
+  padding: 12rpx 20rpx;  /* 按钮内边距 */
+  font-size: 25rpx;  /* 按钮文字大小 */
+  border-radius: 30rpx;  /* 按钮圆角效果 */
+  background-color: #4c89ce;  /* 按钮背景色 */
+  color: rgb(255, 255, 255);  /* 按钮文字颜色 */
+  border: none;  /* 去除默认边框 */
+  cursor: pointer;  /* 鼠标悬停时显示为可点击的样式 */
+  transition: background-color 0.3s, transform 0.2s;  /* 添加过渡动画效果 */
+  flex-basis: 45%;  /* 让每个按钮有适当宽度，支持响应式布局 */
+}
+.modify{
+  padding: 12rpx 20rpx;  /* 按钮内边距 */
+  font-size: 25rpx;  /* 按钮文字大小 */
+  border-radius: 30rpx;  /* 按钮圆角效果 */
+  background-color: #67c767;  /* 按钮背景色 */
+  color: rgb(255, 255, 255);  /* 按钮文字颜色 */
+  border: none;  /* 去除默认边框 */
+  cursor: pointer;  /* 鼠标悬停时显示为可点击的样式 */
+  transition: background-color 0.3s, transform 0.2s;  /* 添加过渡动画效果 */
+  flex-basis: 45%;  /* 让每个按钮有适当宽度，支持响应式布局 */
+}
+.add {
+  padding: 12rpx 20rpx;  /* 按钮内边距 */
+  font-size: 25rpx;  /* 按钮文字大小 */
+  border-radius: 30rpx;  /* 按钮圆角效果 */
+  background-color: #67c767;  /* 按钮背景色 */
+  color: rgb(255, 255, 255);  /* 按钮文字颜色 */
+  border: none;  /* 去除默认边框 */
+  cursor: pointer;  /* 鼠标悬停时显示为可点击的样式 */
+  transition: background-color 0.3s, transform 0.2s;  /* 添加过渡动画效果 */
+  flex-basis: 45%;  /* 让每个按钮有适当宽度，支持响应式布局 */
+  margin-bottom: 20rpx;
+}
+.reduce  {
+  padding: 12rpx 20rpx;  /* 按钮内边距 */
+  font-size: 25rpx;  /* 按钮文字大小 */
+  border-radius: 30rpx;  /* 按钮圆角效果 */
+  background-color: #f17240;  /* 按钮背景色 */
+  color: rgb(255, 255, 255);  /* 按钮文字颜色 */
+  border: none;  /* 去除默认边框 */
+  cursor: pointer;  /* 鼠标悬停时显示为可点击的样式 */
+  transition: background-color 0.3s, transform 0.2s;  /* 添加过渡动画效果 */
+  flex-basis: 45%;  /* 让每个按钮有适当宽度，支持响应式布局 */
+  margin-bottom: 20rpx;
+}
+.save{
+  padding: 12rpx 20rpx;  /* 按钮内边距 */
+  font-size: 30rpx;  /* 按钮文字大小 */
+  border-radius: 30rpx;  /* 按钮圆角效果 */
+  background-color: #6fc400;  /* 按钮背景色 */
+  color: rgb(255, 255, 255);  /* 按钮文字颜色 */
+  border: none;  /* 去除默认边框 */
+  cursor: pointer;  /* 鼠标悬停时显示为可点击的样式 */
+  transition: background-color 0.3s, transform 0.2s;  /* 添加过渡动画效果 */
+  flex-basis: 45%;  /* 让每个按钮有适当宽度，支持响应式布局 */
+  margin-bottom: 20rpx;
+}
+.submit{
+  padding: 14rpx 30rpx; /* 设置按钮的内边距 */
+  font-size: 30rpx; /* 文字大小 */
+  font-weight: bold; /* 文字加粗 */
+  color: #fff; /* 按钮文字颜色 */
+  background-color: #4CAF50; /* 按钮背景色 */
+  border: none; /* 去除默认的边框 */
+  border-radius: 30rpx; /* 圆角效果 */
+  text-align: center; /* 文字居中对齐 */
+  cursor: pointer; /* 鼠标悬停显示为手指 */
+  transition: all 0.3s ease-in-out; /* 平滑过渡效果 */
+  box-sizing: border-box; /* 确保内边距和边框包含在总宽度内 */
+}
+.submit:active {
+  transform: translateY(1rpx); /* 按钮按下时向下偏移 */
+  background-color: #388e3c; /* 按钮按下时背景色变化 */
+}
+.delete{
+  background-color: crimson;
+  color: #f7f7f7;
+  border-radius: 30rpx; /* 圆角效果 */
+  margin-top: 20rpx;
+}
+
+
+
+/* 弹窗背景 */
+.popup {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+/* 弹窗内容 */
+.popup-content {
+  background: white;
+  width: 80%;
+  padding: 20px;
+  border-radius: 10px;
+  position: relative;
+}
+
+/* 右上角关闭按钮 */
+.popup-close {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+/* 弹窗内按钮 */
+.popup-buttons button {
+  margin: 10px 0;
+  padding: 10px;
+  width: 100%;
+  background-color: #007aff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 16px;
+}
+
+/* ================================== */
+/* 新增：层级折叠表格样式              */
+/* ================================== */
+
+.table-box {
+  background: #fff;
+  border-radius: 12rpx;
+  border: 1px solid #eee;
+  overflow: hidden;
+  width: 100%;
+  margin-top: 10rpx;
+}
+
+/* 表格行通用 */
+.tr {
+  display: flex;
+  align-items: center;
+  border-bottom: 1rpx solid #f0f0f0;
+  min-height: 88rpx;
+  font-size: 26rpx;
+}
+
+/* 表头 */
+.header {
+  background-color: #f8f9fa;
+  font-weight: bold;
+  color: #333;
+}
+
+/* 列宽分配 */
+.col-name {
+  flex: 5; /* 名称列宽一些 */
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  padding-right: 10rpx;
+}
+.col-num {
+  flex: 2; /* 数字列 */
+  text-align: center;
+  justify-content: center;
+  border-left: 1rpx solid #f8f8f8;
+  font-family: Arial, sans-serif;
+}
+
+.td {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  padding: 10rpx 0;
+}
+
+/* 层级背景区分 */
+.row-level-1 {
+  background-color: #fff;
+  font-weight: bold;
+  font-size: 28rpx;
+  color: #000;
+}
+.row-level-2 {
+  background-color: #fafafa;
+  color: #444;
+}
+.row-level-3 {
+  background-color: #fcfcfc;
+  color: #666;
+  font-size: 24rpx;
+}
+
+/* 图标装饰 */
+.arrow {
+  display: inline-block;
+  width: 40rpx;
+  text-align: center;
+  color: #999;
+  font-size: 22rpx;
+}
+.dot {
+  display: inline-block;
+  width: 40rpx;
+  text-align: center;
+  color: #ddd;
+  font-size: 16rpx;
+}
+.name-text {
+  display: flex;
+  flex-direction: column; /* 代码在上，名称在下，或根据需要调整 */
+}
+.name-text .code {
+  font-size: 20rpx;
+  color: #999;
+  font-weight: normal;
+}
+
+/* 异常警告样式 */
+.text-danger {
+  color: #e02807 !important;
+  font-weight: bold;
+}
+.bg-warning {
+  background-color: #fffbe6;
+  color: #faad14;
+  font-weight: bold;
+}

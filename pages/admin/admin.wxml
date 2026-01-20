@@ -1,0 +1,256 @@
+<scroll-view class="scroll-container">
+  <view class="container">
+<!-- 公告发布 -->
+<form bindsubmit="publishAnnouncement">
+  <textarea name="content" placeholder="请输入公告内容" value="{{announcementContent}}"></textarea>
+  
+  <!-- 公告类别选择 -->
+  <picker name="category" value="{{category}}" range="{{categories}}" bindchange="onCategoryChange">
+    <view class="picker">
+      <text>类别选择：{{category}}</text>
+    </view>
+  </picker>
+
+  <button formType="submit" class="submit">发布公告</button>
+</form>
+
+<!-- 公告列表 -->
+<view class="message-container" >
+  <view class="message-title">已发布公告：</view>
+  <view  wx:for="{{announcements}}" wx:key="id">
+    <view bindtap="editAnnouncement" data-id="{{item.id}}" class="announcement-item">
+      <text>[{{item.category}}]</text>
+      <text>{{item.content}}</text>
+      <text class="timestamp">{{item.date}}</text>
+    </view>
+  </view>
+</view>
+
+
+<!-- 编辑公告模态框 -->
+<view wx:if="{{isEditing}}" class="modal">
+  <view class="modal-content">
+    <form bindsubmit="saveAnnouncement">
+      <textarea name="content" placeholder="修改公告内容" value="{{currentAnnouncement.fullContent}}"></textarea>
+      <picker name="category" value="{{currentAnnouncement.category}}" range="{{categories}}" bindchange="onEditCategoryChange">
+        <view class="picker">
+          <text>{{currentAnnouncement.category}}</text>
+        </view>
+      </picker>
+      <button formType="submit" class="save">保存</button>
+      <button bindtap="closeModal" class="cancel">取消</button>
+      <button bindtap="deleteAnnouncement"  class="delete">删除</button>
+    </form>
+  </view>
+</view>
+
+
+  <view class="container">
+  <text>招生名额总表</text>
+  <block wx:for="{{quotaList}}" wx:key="key">
+    <view class="quota-row">
+      <view>
+        <text>{{item.label}}</text>
+        <text>待发名额：{{item.current}} </text>
+        <text> 总名额：{{item.total}}</text>
+      </view>
+    </view>
+  </block>
+  </view>
+
+  <view class="container">
+  <view class="message-title">全院招生名额监控看板</view>
+
+  <view class="table-box">
+    <view class="tr header">
+      <view class="th col-name">专业名称</view>
+      <view class="th col-num">总标</view>
+      <view class="th col-num">待审</view>
+      <view class="th col-num">已招</view>
+    </view>
+
+    <block wx:for="{{quotaTreeList}}" wx:key="code">
+      <view 
+        class="tr row-level-{{item.level}} {{item.hasChildren ? 'is-parent' : ''}}" 
+        hidden="{{!item.show}}" 
+        bindtap="toggleRow" 
+        data-index="{{index}}">
+        
+        <view class="td col-name" style="padding-left: {{ (item.level - 1) * 30 }}rpx;">
+          <text class="arrow" wx:if="{{item.hasChildren}}">{{item.expanded ? '▼' : '▶'}}</text>
+          <text class="dot" wx:else>●</text>
+          
+          <view class="name-text">
+            <text class="code">{{item.code}}</text>
+            <text class="name">{{item.name}}</text>
+          </view>
+        </view>
+
+        <view class="td col-num">{{item.max_total}}</view>
+
+        <view class="td col-num {{item.pending_total < 0 ? 'text-danger' : ''}}">
+          {{item.pending_total}}
+        </view>
+
+        <view class="td col-num {{item.used_total > item.max_total ? 'bg-warning' : ''}}">
+          {{item.used_total}}
+        </view>
+
+      </view>
+    </block>
+  </view>
+  
+  <button class="submit" style="margin-top:20rpx;" bindtap="loadQuotaData">刷新数据</button>
+</view>
+
+ <!-- 学生搜索 -->
+<view>
+  <input class="search-input" type="text" placeholder="搜索学生" bindinput="onStudentSearchInput" value="{{studentQuery}}" />
+  <button bindtap="searchStudent" class="searchStu">搜索学生</button>
+
+
+
+  <!-- 弹框显示学生详细信息和解绑按钮 -->
+  <view wx:if="{{showUnbindDialog}}" class="dialog-overlay">
+    <view class="modal-header">
+    <text>学生详情</text>
+    <button class="close-btn" bindtap="closeDialog">×</button>
+  </view>
+    <view class="dialog-content">
+      <view>
+        <text>姓名: {{searchedStudent.name}}</text>
+      </view>
+      <view>
+        <text>ID: {{searchedStudent.Id}}</text>
+      </view>
+      <view>
+        <text>专业: {{searchedStudent.specialized}}</text>
+      </view>
+      <view>
+        <text>电话: {{searchedStudent.phoneNumber}}</text>
+      </view>
+      <view>
+        <text>导师: {{searchedStudent.selected}}</text>
+      </view>
+      <button class="Unbinding" bindtap="unbindStudent" disabled="{{unbind}}">解绑导师</button>
+      <!-- 重置密码按钮 -->
+      <button class="ResetPassword" bindtap="resetPassword">重置密码</button>
+    </view>
+  </view>
+</view>
+
+  <!-- 重置密码弹框 -->
+  <view wx:if="{{showResetPasswordDialog}}" class="dialog-overlay">
+    <view class="modal-header">
+      <text>请输入新密码</text>
+      <button class="close-btn" bindtap="closeSturesertPasswprd">×</button>
+    </view>
+    <view class="dialog-content">
+      <input type="password" bindinput="handlePasswordInput" placeholder="输入新密码" />
+      <button class="ConfirmReset" bindtap="submitNewPassword">确认重置</button>
+    </view>
+  </view>
+
+
+  <!-- 导师搜索 -->
+  <view>
+    <input class="search-input" type="text" placeholder="搜索导师" bindinput="onTeacherSearchInput" value="{{teacherQuery}}" />
+    <button bindtap="searchTeacher" class="searchTec">指派导师</button>
+
+    <!-- 导师详细信息显示 -->
+    <scroll-view scroll-y="true"> 
+    <view wx:if="{{searchedshow}}" class="searchteacher-container">
+    <view class="teacheer-header">
+        <text>姓名: {{searchedTeacher.name}} </text>
+        <text>ID: {{searchedTeacher.Id}}</text>
+        <button class="close-btn" bindtap="closeTeachermention">×</button>
+    </view>
+        <text>招生名额:</text>          
+          <block wx:for="{{quotaCategories}}" wx:key="key">
+          <view class="quota-row">
+          <text>{{item.label}}: {{searchedTeacher[item.key]}}</text>
+          </view>
+        </block>    
+      <button data-id="{{searchedTeacher.ID}}" bindtap="showTeacherEditPopup" class="modify">编辑名额</button> 
+      <!-- 重置密码按钮 -->
+      <button class="ResetPassword" bindtap="resetTeacherPassword">重置密码</button>
+    </view>
+ </scroll-view>
+    <!-- <view wx:if="{{teacherQuery && !searchedTeacher}}">
+      <text>此导师不存在</text>
+    </view> -->
+  </view>
+
+    <!-- 重置密码弹框 -->
+  <view wx:if="{{showTeacherPasswordDialog}}" class="dialog-overlay">
+    <view class="modal-header">
+      <text>请输入新密码</text>
+      <button class="close-btn" bindtap="closeTeacherEditPopup">×</button>
+    </view>
+    <view class="dialog-content">
+      <input type="password" bindinput="handleTeacherPasswordInput" placeholder="输入新密码" />
+      <button class="ConfirmReset" bindtap="submitNewTeacherPassword">确认重置</button>
+    </view>
+  </view>
+
+  <!-- 修改导师招生名额的弹窗 -->
+<view wx:if="{{modify}}" class="showTeachermention">
+
+   <view class="popup-content">
+    <text>编辑导师 {{selectedTeacher.name}} 招生名额</text>
+    <button class="close-btn" bindtap="closeTeachermodify">×</button>
+    <scroll-view scroll-y="true" >
+    <view wx:for="{{quotaCategories}}" wx:key="key">
+
+      <view class="quota-row">
+        <text>{{item.label}}: {{selectedTeacher[item.key]}}</text>
+        <text>已变更: {{selectedTeacher.pendingChanges[item.key] || 0}}</text>
+        <button data-type="{{item.key}}" data-action="add" bindtap="modifyQuota" class="add">加一</button>
+        <button data-type="{{item.key}}" data-action="subtract" bindtap="modifyQuota" class="reduce">减一</button>
+      </view>
+
+    </view>
+        <button bindtap="saveTeacherChanges" class="save" disabled="{{acceptstate}}">保存</button>
+        <!-- 加一个弹窗（信息提示名额变化） and 还需要加一个状态判断-->
+          </scroll-view>
+
+    <!-- <button bindtap="closeTeacherEditPopup">取消</button> -->
+  </view>
+
+ 
+</view>
+
+
+  <!-- 上传和导出功能 -->
+  <view class="button-group">
+    <button bindtap="chooseStudentExcel">创建学生</button>
+  <button bindtap="chooseTeacherExcel">创建导师</button>
+  <button bindtap="chooseTeacherzhaoshengExcel">新增指标</button>
+  
+  <button bindtap="exportExcel">导出双选名单（学生）</button>
+  <button bindtap="exportTeacherQuota">导出双选结果（导师）</button>
+  <button bindtap="clearSystem">清空系统</button>
+  <!-- <button bind:tap="detailmention">查看导师信息</button> -->
+  <button bind:tap="logic">导入逻辑表</button>
+  <button bindtap="showPopup">查看退回记录</button>
+  <button bindtap="outPutexample">导出《新增指标》模板</button>
+    <!-- 弹窗 -->
+  <view class="popup" wx:if="{{showPopupFlag}}">
+    <view class="popup-content">
+      <!-- 右上角关闭按钮 -->
+      <view class="popup-close" bindtap="closePopup">X</view>
+      
+      <!-- 弹窗内容 -->
+      <view class="popup-buttons">
+        <button bindtap="exportRejectedRecords">导出退回记录</button>
+        <button bindtap="clearRejectedRecords">清空退回记录</button>
+      </view>
+    </view>
+  </view>
+
+  </view>
+
+</view>
+
+</scroll-view>
+

@@ -1,0 +1,99 @@
+<view class="container">
+  <button class="Stuinformation" bind:tap="showStuinfomation" >点击查看确定双选的学生</button>
+</view>
+
+<!-- 显示确定双选学生的页面 -->
+<view wx:if="{{showchosedstudent}}" class="page">
+  <view class="page-header">
+    <text>学生详情</text>
+    <button class="close-btn" bindtap="closeStudentinformation">×</button>
+  </view>
+  
+  <view class="page-content" wx:if="{{student != ''}}">
+    <scroll-view scroll-y="true">
+      <view wx:for="{{student}}" wx:key="index">
+        <view class="student-info-item">
+          <view class="student-name">姓名：{{item.studentName}}</view>
+          <view class="student-info">选择专业：{{item.specialized}}</view>
+          <view class="student-info">手机号：{{item.phoneNumber}}</view>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+  
+  <!-- 当没有学生数据时显示提示 -->
+  <view class="noneStu" wx:else="">暂无已确定双选关系的学生</view>
+</view>
+
+
+
+
+<scroll-view scroll-y="true" class="scroll-container">
+  <view class="container">
+  <view class="title">待审核学生</view>
+
+  <!-- 显示暂无待审核学生信息 -->
+  <block wx:if="{{prestudent.length === 0}}">
+    <view class="empty">暂无待审核学生</view>
+  </block>
+
+  <!-- 循环显示待审核学生列表 -->
+  <view wx:for="{{prestudent}}" wx:key="index" >
+    <view class="student-item">
+    <text class="mentions">学生姓名：{{item.studentName}}
+          专业：{{item.specialized}}</text>
+      <button 
+        class="details"
+        bindtap="showStudentDetails" 
+        data-student-id="{{item.studentId}}" data-index="{{index}}">
+        查看详情
+      </button>
+    </view>
+  </view>
+</view>
+</scroll-view>
+ 
+<!-- 学生详情弹窗 -->
+<view wx:if="{{showModal}}" class="modal">
+  <view class="modal-header">
+    <text>学生详情</text>
+    <button class="close-btn" bindtap="closeStudentDetails">×</button>
+  </view>
+  <view class="modal-content">
+    <view>学生姓名：{{selectedStudent.studentName}}</view>
+    <view>准考证号：{{selectedStudent.Id}}</view>     <!-- 可以放学生的本科院校 -->
+    <view >选择专业：{{selectedStudent.specialized}}</view>
+    <view >手机号：<text class="selectphoneNumber">{{selectedStudent.phoneNumber}}</text></view>   <!-- 可修改，到时候放学生成绩 -->
+    <view>个人简介：<textarea class="textarea" value="{{selectedStudent.description}}" disabled></textarea></view>
+  </view>
+  <view class="actions">
+    <!-- 接受按钮 -->
+    
+    <button bindtap="acceptStudent" data-student-id="{{selectedStudent._id}}" data-type="{{selectedStudent.Type}}" data-index="{{selectedStudent.index}}" disabled="{{acceptstate}}">接受</button>
+    <!-- 单次点击 -->
+
+    <!-- 拒绝按钮 -->
+    <button bindtap="rejectStudent" data-student-id="{{selectedStudent._id}}">拒绝</button>
+  </view>
+</view>
+
+<!-- 拒绝理由输入框弹窗 -->
+<view wx:if="{{showRejectReasonInput}}" class="reject-reason-modal">
+  <view class="modal-content">
+    <text>请输入拒绝理由：</text>
+    <textarea 
+      bindinput="onRejectReasonChange"
+      value="{{rejectReason}}"
+      placeholder="请输入拒绝理由"
+      auto-focus="true"
+      maxlength="200"
+    ></textarea>
+    <view class="actions">
+      <!-- 取消按钮 -->
+      <button bindtap="closeRejectReasonInput">取消</button>
+      
+      <!-- 确认拒绝按钮 -->
+      <button bindtap="confirmRejectStudent">确认拒绝</button>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,257 @@
+page {
+  background-color: #f0f0f0;
+}
+
+.container {
+  display: flex;
+  padding: 30rpx; /* 调整此处以修改内边距 */
+  flex-direction: row;
+  justify-items: flex-start;
+  margin-top: 20rpx;
+  margin-bottom: 40rpx;
+  border-radius: 30rpx;
+  background-color: #fcfcfc;
+  box-shadow: 0 10rpx 28rpx rgba(0, 0, 0, 0.1);
+  justify-content: flex-start;
+}
+
+.image {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-right: 140rpx; /* 可以调整此值 */
+}
+.Mybutton {
+  flex: 1;
+  min-width: 160rpx; 
+  max-width: 300rpx;
+  font-size: auto;
+  border-radius: 30rpx;
+  margin-right: 15rpx;
+  border: none;
+  color: #4f574d;
+  background-color: #e9e9e9;
+  transition: background-color 0.3s;
+}
+.cancel{  
+  min-width: 160rpx;
+  border-radius: 30rpx;
+  background-color: rgba(255, 0, 0, 0.705);
+  transition: background-color 0.3s;
+  color: #f7efef;
+}
+.hover {
+  background-color: #0056b3; /* 点击时的背景颜色 */
+}
+.text-name, .text-id {
+  line-height: 1.5; /* 增加行高 */
+}
+
+.text-name {
+  font-family: 'Arial', sans-serif;
+  font-size: 18px;
+  font-weight: bold;
+  color: #333;
+}
+
+.text-id {
+  font-family: 'Arial', sans-serif;
+  font-size: 14px;
+  color: #666;
+}
+.box{
+  display: flex;
+  justify-content: center; /* 水平居中 */
+}
+.container-text{
+  display: flex;
+  padding: 30rpx; /* 调整此处以修改内边距 */
+  margin-top: 20rpx;
+  margin-bottom: 40rpx;
+  border-radius: 30rpx;
+  background-color: #fcfcfc;
+  box-shadow: 0 10rpx 28rpx rgba(0, 0, 0, 0.1);
+  justify-content: center;
+}
+.shortline{
+  color: rgb(85, 85, 85);
+}
+
+/* 消息列表样式 */
+.message-container {
+  padding: 10px;
+}
+.message-title {
+  display: block;
+  text-align: center;
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+.message-item {
+  background-color: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+.message-header {
+  display: flex;
+  justify-content: space-between;
+}
+.teacher-name {
+  font-weight: bold;
+}
+.timestamp {
+  font-size: 12px;
+  color: #888;
+}
+.message-summary {
+  margin-top: 5px;
+  color: #555;
+}
+
+/* 消息列表样式 */
+.message-container {
+  padding: 10px;
+}
+.message-title {
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+.message-item {
+  background-color: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+.message-header {
+  display: flex;
+  justify-content: space-between;
+}
+.teacher-name {
+  font-weight: bold;
+}
+.timestamp {
+  font-size: 12px;
+  color: #888;
+}
+.message-summary {
+  margin-top: 5px;
+  color: #555;
+}
+
+/* 模态框样式 */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.modal-content {
+  background-color: #fff;
+  border-radius: 10px;
+  padding: 20px;
+  width: 80%;
+}
+.modal-title {
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+button {
+  margin-top: 10px;
+}
+
+/* 已申请导师部分 */
+.pending {
+  padding: 20px;
+  background-color: #f9f9f9; /* 背景颜色 */
+  border-radius: 12px; /* 圆角效果 */
+  box-shadow: 0 4rpx 10rpx rgba(0, 0, 0, 0.1); /* 柔和的阴影 */
+  margin-top: 20rpx; /* 上边距 */
+  min-height: 100px; /* 确保容器高度足够 */
+  margin-right: 25rpx;
+  margin-left: 25rpx;
+}
+
+.pending text {
+  font-size: 27rpx;
+  margin-bottom: 10rpx;
+  display: block;
+  font-weight: bold;
+}
+
+.pending button {
+  background-color: #f44336; /* 红色背景 */
+  color: white;
+  border-radius: 6rpx;
+  padding: 10rpx 20rpx;
+  font-size: 25rpx;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.pending button:hover {
+  background-color: #d32f2f; /* 红色悬停效果 */
+}
+
+/* 已选择导师部分 */
+.chosed {
+  padding: 20px;
+  background-color: #f9f9f9; /* 背景颜色 */
+  border-radius: 12px; /* 圆角效果 */
+  box-shadow: 0 4rpx 10rpx rgba(0, 0, 0, 0.1); /* 柔和的阴影 */
+  margin-top: 20rpx; /* 上边距 */
+  margin-right: 25rpx;
+  margin-left: 25rpx;
+}
+
+.chosed text {
+  font-size: 27rpx;
+  margin-bottom: 10rpx;
+  display: block;
+  font-weight: bold;
+}
+
+/* 未申请导师部分 */
+.no-apply {
+  padding: 20px;
+  background-color: #f9f9f9; /* 背景颜色 */
+  border-radius: 12px; /* 圆角效果 */
+  box-shadow: 0 4rpx 10rpx rgba(0, 0, 0, 0.1); /* 柔和的阴影 */
+  margin:25rpx 20rpx;
+}
+
+.no-apply text {
+  display: block;
+  font-size: 27rpx;
+  color: #e6894be1; /* 橙色文字 */
+  text-align: center;
+  font-weight: bold;
+}
+
+/* 公共文本样式 */
+text {
+  font-size: 27rpx;
+  color: #333;
+}
+.no-messages{
+  display: block;
+  text-align: center;
+  font-size: 17px;
+  margin-top: 20rpx;
+  font-weight: bold;
+}
+scroll-view{
+  height: 100vh;
+}

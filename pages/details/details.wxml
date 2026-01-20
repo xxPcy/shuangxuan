@@ -1,0 +1,71 @@
+
+<!-- 头像部分 -->
+<view class="img-box">
+<image src="{{teacher.picture}}" mode="" class="mypicture"/>
+</view>
+<!-- 个人信息部分 -->
+<view class="info-box">
+  <view class="info-title">个人信息</view>
+
+  <view class="info-item">
+    <text class="info-label">姓名：</text>
+    <text class="info-content">{{teacher.name}}</text>
+  </view>
+
+  <view class="info-item">
+    <text class="info-label">职称：</text>
+    <text class="info-content">{{teacher.Jobposition}}</text>
+  </view>
+
+  <view class="info-item">
+    <text class="info-label" >邮箱：</text>
+    <text class="copy-content" bindtap="copyText" data-text="{{teacher.email}}">{{teacher.email}}</text>
+  </view>
+
+  <view class="info-item">
+    <text class="info-label">研究方向：</text>
+    <text class="info-content">{{teacher.ezresearch}}</text>
+  </view>
+
+  <view class="info-item">
+    <text class="info-label">办公室：</text>
+    <text class="info-content">{{teacher.office}}</text>
+  </view>
+
+  <view class="info-item">
+    <text class="info-label">招生说明：</text>
+    <text class="copy-content" bindtap="copyText" data-text="{{teacher.description}}">{{teacher.description}}</text>
+  </view>
+</view>
+
+
+<!-- 按钮部分 -->
+<view class="box">
+  <button size="mini" bind:tap="selectTeacherByCategory" data-category="控制科学与工程" disabled="{{buttonStates.kongzhiX}}" style="background-color: {{buttonColors.kongzhiX}};">控制科学与工程</button>
+  <button size="mini" bind:tap="selectTeacherByCategory" data-category="电气工程学硕" disabled="{{buttonStates.dqgcxs}}" style="background-color: {{buttonColors.dqgcxs}};">电气工程(学硕)</button>
+</view>
+
+<view class="box2">
+  <button  bind:tap="selectTeacherByCategory" data-category="电子信息专硕" disabled="{{buttonStates.dzxxzs}}" style="background-color: {{buttonColors.dzxxzs}};">人工智能/控制工程(专硕)</button>
+  <button size="mini" bind:tap="selectTeacherByCategory" data-category="电气工程专硕" disabled="{{buttonStates.dqgczs}}" style="background-color: {{buttonColors.dqgczs}};">电气工程(专硕)</button>
+</view>
+
+<view class="box3">
+  <button  bind:tap="selectTeacherByCategory" data-category="电子信息联培" disabled="{{buttonStates.dzxxlp}}" style="background-color: {{buttonColors.dzxxlp}};">人工智能/控制工程(联培)</button>
+  <button size="mini" bind:tap="selectTeacherByCategory" data-category="电气工程联培" disabled="{{buttonStates.dqgclp}}" style="background-color: {{buttonColors.dqgclp}};">电气工程(联培)</button>
+</view>
+
+<view class="box4">
+  <button  bind:tap="selectTeacherByCategory" data-category="电子信息士兵计划" disabled="{{buttonStates.dzxxsoldier}}" style="background-color: {{buttonColors.dzxxsoldier}};">人工智能/控制工程(士兵)</button>
+  <button size="mini" bind:tap="selectTeacherByCategory" data-category="电气工程士兵计划" disabled="{{buttonStates.dqgcsoldier}}" style="background-color: {{buttonColors.dqgcsoldier}};">电气工程(士兵计划)</button>
+</view>
+
+<view class="box5">
+  <button  bind:tap="selectTeacherByCategory" data-category="电子信息非全日制" disabled="{{buttonStates.dzxxpartTime}}" style="background-color: {{buttonColors.dzxxpartTime}};">人工智能/控制工程(非全)</button>
+  <button size="mini" bind:tap="selectTeacherByCategory" data-category="电气工程非全日制" disabled="{{buttonStates.dqgcpartTime}}" style="background-color: {{buttonColors.dqgcpartTime}};">电气工程(非全日制)</button>
+</view>
+
+
+
+ 
+

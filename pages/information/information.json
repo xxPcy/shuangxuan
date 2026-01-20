@@ -1,0 +1,34 @@
+{
+    "usingComponents": {},
+    "navigationBarBackgroundColor": "#f3514f",
+   "enablePullDownRefresh": true  ,
+   "backgroundTextStyle":"dark",
+   "backgroundColorTop": "#00AF92",
+   
+   "tabBar": {
+    "selectedColor": "#f3514f",
+    "color": "#666",
+    "backgroundColor": "#efefef",
+    "borderStyle": "black",
+    "list": [
+        {
+            "text": "导师信息",
+            "pagePath": "pages/information/information",
+            "iconPath": "/picture/people-bottom-card.png",
+            "selectedIconPath": "/picture/people-bottom-card.png"
+        },
+        {
+            "text": "申请",
+            "pagePath": "pages/teacher/teacher",
+            "iconPath": "/picture/cooperative-handshake.png",
+            "selectedIconPath": "/picture/cooperative-handshake.png"
+        },
+        {
+            "text": "个人",
+            "pagePath": "pages/user/user",
+            "iconPath": "/picture/user.png",
+            "selectedIconPath": "/picture/user.png"
+        }
+    ]
+}
+}

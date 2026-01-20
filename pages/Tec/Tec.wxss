@@ -1,0 +1,218 @@
+/* 页面背景 */
+page {
+  background-color: #f3f4f6; /* 柔和的灰白背景 */
+  font-family: 'Arial', sans-serif; /* 统一字体 */
+}
+
+/* 滚动容器 */
+.scroll-container {
+  padding-bottom: 150rpx; /* 增加底部间距，避免内容遮挡 */
+  width: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+  height: auto; /* 确保滚动区域高度不会限制公告容器 */
+}
+
+/* 通用容器样式 */
+.announcement-container {
+  display: flex;
+  flex-direction: column;
+  padding: 40rpx; /* 增加内边距 */
+  margin: 25rpx 30rpx; /*统一间距*/
+  border-radius: 25rpx;
+  background-color: #ffffff; /* 白色背景 */
+  box-shadow: 0 15rpx 30rpx rgba(0, 0, 0, 0.12); /* 柔和阴影 */
+  transition: transform 0.3s, box-shadow 0.3s; /* 平滑过渡效果 */
+  
+}
+.pending-changes-container{
+  display: flex;
+  flex-direction: column;
+  padding: 40rpx; /* 增加内边距 */
+  border-radius: 25rpx;
+  background-color: #ffffff; /* 白色背景 */
+  box-shadow: 0 15rpx 30rpx rgba(0, 0, 0, 0.12); /* 柔和阴影 */
+  transition: transform 0.3s, box-shadow 0.3s; /* 平滑过渡效果 */
+  margin: 25rpx 30rpx;
+}
+.quota-row {
+  padding: 12rpx;
+  margin-bottom: 10rpx;
+  border-bottom: 1px solid #b6b6b6;
+}
+.short-line{
+   display: block;
+   text-align: left;
+}
+
+.bold {
+  font-weight: bold;
+}
+/* 鼠标悬停效果 */
+.container:hover {
+  transform: translateY(-12rpx); /* 提升高度 */
+  box-shadow: 0 20rpx 35rpx rgba(0, 0, 0, 0.2); /* 更明显的阴影 */
+}
+
+/* 信息文字样式 */
+.information {
+  font-size: 30rpx; /* 略大字体，更清晰 */
+  color: #2d3436; /* 深灰色字体，提升对比度 */
+  line-height: 1.8; /* 舒适的行间距 */
+  margin-bottom: 20rpx;
+}
+
+
+
+
+
+
+/* 滚动条样式 */
+.scroll-container::-webkit-scrollbar {
+  width: 12rpx; /* 略宽滚动条 */
+}
+
+.scroll-container::-webkit-scrollbar-thumb {
+  background: #bbbbbb; /* 更柔和的滚动条颜色 */
+  border-radius: 10rpx;
+  transition: background-color 0.3s; /* 平滑颜色过渡 */
+}
+
+.scroll-container::-webkit-scrollbar-thumb:hover {
+  background: #888888; /* 悬停时的深色 */
+}
+/* 公告项 */
+.announcement-item {
+  display: flex;
+  justify-content: space-between; /* 使标题和日期在两端 */
+  align-items: center; /* 垂直居中对齐 */
+  padding: 15rpx 0;
+  border-bottom: 1px solid #eee;
+  transition: transform 0.3s, box-shadow 0.3s;
+  width: 100%; /* 确保占满整个宽度 */
+}
+
+/* 鼠标悬停效果 */
+.announcement-item:hover {
+  transform: translateY(-5rpx);
+  box-shadow: 0 10rpx 20rpx rgba(0, 0, 0, 0.1);
+}
+
+/* 公告标题 */
+.announcement-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #333;
+  flex: 1; /* 占据剩余空间，使日期靠右 */
+  white-space: nowrap; /* 防止标题换行 */
+  text-overflow: ellipsis; /* 如果标题过长，使用省略号 */
+  overflow: hidden; /* 超出部分隐藏 */
+}
+
+/* 公告日期 */
+.announcement-date {
+  font-size: 12px;
+  color: #999;
+  margin-left: 10px;
+  white-space: nowrap;
+}
+
+/* 如果没有公告 */
+.no-announcement {
+  text-align: center;
+  padding: 20px;
+  font-size: 14px;
+  color: #999;
+}
+/* 容器样式 */
+.quota-section {
+  padding: 20px;
+  background-color: #f9f9f9; /* 背景颜色 */
+  border-radius: 12px; /* 圆角效果 */
+  box-shadow: 0 4rpx 10rpx rgba(0, 0, 0, 0.1); /* 柔和的阴影 */
+  margin-top: 20rpx; /* 上边距 */
+  min-height: 100px; /* 确保容器高度足够 */
+  margin-right: 25rpx;
+  margin-left: 25rpx;
+  display: flex;
+  flex-direction: column
+}
+.quota-item text{
+  font-weight: bold;
+}
+/* 标题样式 */
+.title {
+  font-size: 20px;
+  font-weight: bold;
+  color: #333; /* 深色字体 */
+  text-align: center; /* 居中 */
+  margin-bottom: 15rpx; /* 下边距 */
+}
+
+/* 每个招生名额项 */
+.quota-item {
+  display: flex;
+  flex-direction: column; /* 垂直排列 */
+  margin-bottom: 15rpx; /* 下边距 */
+  padding: 12rpx; /* 内边距 */
+  background-color: #fff; /* 白色背景 */
+  border-radius: 8px; /* 圆角效果 */
+  box-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.1); /* 轻微阴影 */
+  font-size: 16px;
+  color: #333; /* 深色字体 */
+}
+
+/* 标签文字样式 */
+.quota-item text {
+  font-size: 16px;
+  color: #333; /* 深色文字 */
+  margin-bottom: 8rpx; /* 每个子项之间的间距 */
+}
+
+/* 数字信息的文本样式 */
+.quota-item view {
+  font-size: 14px;
+  color: #555; /* 较浅的灰色 */
+  display: flex;
+  justify-content: space-between; /* 让文本左右对齐 */
+}
+
+/* 增加数值的颜色和字体 */
+.quota-item view text {
+  font-weight: normal;
+}
+
+/* 为了美观，使用不同颜色标注不同的名额 */
+.quota-item .remaining {
+  color: #4CAF50; /* 剩余名额使用绿色 */
+}
+
+.quota-item .used {
+  color: #f44336; /* 已使用名额使用红色 */
+}
+
+/* 弹性布局 */
+.quota-item view {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* 居中显示文本 */
+.quota-item text {
+  text-align: center;
+}
+
+.accept{
+  background-color: #4CAF50;
+  color: #f3f4f6;
+  border-radius: 30rpx;
+  margin-bottom: 10rpx;
+  font-size: 26rpx; /* 调整按钮文字大小 */
+}
+.reject{
+  background-color: #d44b42;
+  font-size: 26rpx; /* 调整按钮文字大小 */
+  color: #f3f4f6;
+  border-radius: 30rpx;
+}

@@ -1,0 +1,55 @@
+  <view>
+  <!-- 公告标题 -->
+  <view class="announcement-header">公告</view>
+
+<scroll-view scroll-y="true" class="announcement-container">
+  <!-- 公告列表项 -->
+  <view wx:for="{{announcements}}" wx:key="id" class="announcement-item" bindtap="viewAnnouncement" data-id="{{item.id}}">
+    <text class="announcement-title">{{item.content}}</text>
+    <text class="announcement-date">{{item.date}}</text>
+  </view>
+
+  <!-- 如果没有公告 -->
+  <view wx:if="{{announcements.length === 0}}" class="no-announcement">
+    <text>暂无公告</text>
+  </view>
+</scroll-view>
+</view>
+<!-- 搜索导师输入框 -->
+<view class="search-container">
+<input class="search-input" placeholder="请输入要搜索老师姓名" bindinput="onSearchInput" type="text" value="{{searchQuery}}"/>
+</view>
+
+<scroll-view scroll-y="true"  class="scroll-container" bindscrolltolower="onReachBottom">
+<view class="box">
+<text class="note">点击导师头像了解详情</text>
+<view class="buttom"></view> 
+</view>
+  <view class="tec" wx:for="{{filteredTeachers}}" wx:key="id">
+    <view class="profile-container">
+    <view class="profile">
+      <navigator url="/pages/details/details?_id={{item._id}}&kongzhiX={{item.kongzhiX}}&dqgcxs={{item.dqgcxs}}&dzxxzs={{item.dzxxzs}}&kzgczs={{item.kzgczs}}&dzxxlp={{item.dzxxlp}}&kzgclp={{item.kzgclp}}&dqgczs={{item.dqgczs}}&dqgclp={{item.dqgclp}}">
+      <image src="{{item.picture}}" class="profile-img"></image>
+      </navigator>  
+    </view>
+      <!-- <text class="short-text" >
+      姓名：{{item.name}}\n
+      
+     <text class="research"> 研究方向：{{item.ezresearch}}\n</text>  
+
+      邮箱：{{item.email}}
+      </text>
+       <view class="buttom"></view>  -->
+       <view class="info-container">
+      <view class="name">姓名：{{item.name}}</view>
+      <view class="research">研究方向：{{item.ezresearch}}</view>
+      <view class="email">邮箱：{{item.email}}</view>
+    </view>
+    
+    </view>
+    <view class="buttom"></view>
+      </view>
+  <view wx:if="{{!hasMore}}" class="box">
+    <text class="note">没有更多数据了</text>
+  </view>
+</scroll-view>

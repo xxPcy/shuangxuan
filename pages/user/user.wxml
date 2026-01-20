@@ -1,0 +1,77 @@
+<view class="Stumention">
+  <!-- 学生信息展示部分 -->
+  <view>
+    <text>姓名：{{Stu.name}}</text>
+  </view>
+  <view>
+    <text>准考证号：{{Stu.Id}}</text>
+  </view>
+  <view>
+    <text>报考专业：{{Stu.specialized}}</text>
+  </view>
+  <view>
+    <text>个人手机号：{{Stu.phoneNumber}}</text>
+  </view>
+  <view>
+    <text>个人信息简介：{{Stu.description}}</text>
+    <view class="line"></view>
+  </view>
+</view>
+<!-- 个人信息补充与修改标题 -->
+<view class="info-modify-title">
+  <text class="title">个人信息补充与修改</text>
+</view>
+
+<scroll-view scroll-y="true" class="scroll-container">
+  <!-- 修改部分样式 -->
+<view class="changeInformation">
+  <!-- 修改密码部分 -->
+  <view class="changePassword">
+    <view class="form-item">
+      <text class="label">登陆密码：</text>
+      <input class="input" type="password" value="{{updatedPassword}}" bindinput="onPasswordInput" placeholder="请输入要修改的密码" />
+    </view>
+    <!-- 确认密码部分 -->
+    <!-- <view class="form-item">
+      <text class="label">确认密码：</text>
+      <input class="input" type="password" value="{{confirmPassword}}" bindinput="onConfirmPasswordInput" placeholder="请再次输入密码" />
+    </view> -->
+    <button class="btn-submit" bind:tap="submitPassword">修改密码</button>
+  </view>
+  
+  <!-- 修改手机号与简介部分 -->
+  <form bindsubmit="btnSub" class="form">
+    <view class="form-item">
+      <text class="label">手机号：</text>
+      <input class="input" type="text" value="{{Stu.phoneNumber}}" bindinput="onPhoneInput" placeholder="请输入手机号" />
+    </view>
+
+    <view class="form-item">
+      <text class="label">个人信息简介：</text>
+      <textarea class="textarea" maxlength="-1" placeholder="请输入简要说明" value="{{Stu.description}}" bindinput="onDescriptionInput"></textarea>
+    </view>
+
+    <view class="button-group">
+      <button class="btn-submit" form-type="submit" bindtap="submitForm">提交修改信息</button>
+    </view>
+  </form>
+</view>
+
+</scroll-view>
+
+<view wx:if="{{confirmPassword}}" class="modal">
+  <view class="modal-header">
+    <text>验证新密码</text>
+    <button class="close-btn" bindtap="closePassWord">×</button>
+  </view>
+    <view class="form-item">
+      <text class="label">输入新密码：</text>
+      <input class="input" type="password"  bindinput="inputNewPassword" placeholder="请输入新密码" />
+    </view>
+    <view class="form-item">
+      <text class="label">确认新密码密码：</text>
+      <input class="input" type="password"  bindinput="inputNewPassworddouble" placeholder="请再次输入新密码" />
+    </view>
+    <button bindtap="confirmNewPassword" class="confirm">确认</button>
+</view>
+  

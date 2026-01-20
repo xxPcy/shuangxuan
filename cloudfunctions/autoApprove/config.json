@@ -1,0 +1,15 @@
+{
+    "permissions": {
+        "openapi": [
+        ]
+    },
+    
+    "triggers": [
+      {
+        "name": "autoApprove",
+        "type": "timer",
+        "config": "0 0/2 * * * *" 
+      }
+    ]
+    
+}

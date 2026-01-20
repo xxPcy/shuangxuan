@@ -1,0 +1,104 @@
+/* pages/land/land.wxss */
+
+.selected-identity {
+  /* margin-top: 10px; */
+  font-size: 28rpx;
+  color: #333;
+  
+}
+.two{
+  padding-top: 20rpx;
+  border-radius: 16rpx;
+  width: 78rpx;
+ display: flexbox;
+ align-items: center;
+ border-radius: 80rpx;
+ border: 4rpx solid rgba(65, 175, 179, 0.74);
+ }
+.center{
+  display: flex;
+  justify-content: center;
+}
+
+.inputId , .inputname{
+  border: none;
+  border-bottom: 1px solid #000;
+  outline: none;
+  background-color: transparent;
+}
+.input1{
+  display: flexbox;
+  align-items: center;
+  padding-left: 40rpx;
+  background-color: #73AD21;
+}
+.remember{
+  height: 48rpx;
+  padding-top: 20rpx;
+  padding-left: 40rpx;
+  padding-bottom: 20rpx;
+  background-color: #73AD21;
+}
+.login-container{
+  margin-top: 260rpx;
+  padding-left: 44rpx;
+  border-radius:50rpx 50rpx 0rpx 0rpx;
+  background-color: #73AD21;
+}
+.name{
+  padding-top: 20rpx; 
+}
+.account{
+  padding-top: 20rpx;
+}
+.word{
+  margin-top: 20rpx;
+}
+.header{
+  margin-top: 130rpx;
+  margin-left: 25%;
+}
+.title{
+  margin-left: 25%;
+  font-size: 40rpx;
+}
+.info{
+  margin-left: 13rpx;
+  font-size: 30rpx;
+  color: rgba(29, 28, 27, 0.466);
+}
+.selected-identity{
+  margin-top: -25rpx;
+  border-bottom: 1px solid #000;
+}
+.choose{
+  margin-left: 90%;
+  width: 20px;
+  height: 20px;
+}
+.aniu{
+  background-color: #73AD21;
+  height: 283rpx;
+}
+.gdut{
+  display: flex;
+  justify-content: center;
+}
+.gdutimage{
+  width: 700rpx;
+  height: 230rpx;
+}
+.password-btn{
+  position: absolute; /* 绝对定位按钮 */
+  right: -85rpx; /* 距离输入框右边的间距 */
+  padding: 0rpx 10rpx;
+  background-color: transparent;
+  font-size: 14px;
+  color: #000;
+  cursor: pointer;
+  transition: color 0.3s;
+}
+.password-container{
+  display: flex;
+  border-bottom: 1px solid #000;
+}

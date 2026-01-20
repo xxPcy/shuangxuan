@@ -1,0 +1,82 @@
+{
+    "pages": [
+        "pages/land/land",
+        "pages/information/information",
+        "pages/details/details",
+        "pages/teacher/teacher",
+        "pages/application/application",
+        "pages/user/user",
+        "pages/webview/webview",
+        "pages/Stu/Stu",
+        "pages/Tec/Tec",
+        "pages/admin/admin",
+        "pages/QuotaInformation/QuotaInformation",
+        "custom-tab-bar/index",
+
+        "pages/Review_s/review"
+    ],
+    "tabBar": {
+        "custom": true,
+        "color": "#5F5F5F",
+        "selectedColor": "#07c160",
+        "borderStyle": "black",
+        "backgroundColor": "#F7F7F7",
+        "list": [
+            {
+                "text": "导师信息",
+                "pagePath": "pages/information/information",
+                "iconPath": "/image/people-bottom-card.png",
+                "selectedIconPath": "/image/people-bottom-card.png"
+            },
+            {
+                "text": "申请",
+                "pagePath": "pages/teacher/teacher",
+                "iconPath": "/image/cooperative-handshake.png",
+                "selectedIconPath": "/image/cooperative-handshake.png"
+            },
+            {
+                "text": "个人",
+                "pagePath": "pages/user/user",
+                "iconPath": "/image/user.png",
+                "selectedIconPath": "/image/user.png"
+            },
+            {
+                "text": "名额信息",
+                "pagePath": "pages/Tec/Tec",
+                "iconPath": "/image/cooperative-handshake.png",
+                "selectedIconPath": "/image/cooperative-handshake.png"
+            },
+
+            {
+              "text": "学生申请",
+              "pagePath": "pages/Review_s/review",
+              "iconPath": "/image/studentshenqing.png",
+              "selectedIconPath": "/image/studentshenqing.png"
+          },
+
+
+            {
+                "text": "信息编辑",
+                "pagePath": "pages/QuotaInformation/QuotaInformation",
+                "iconPath": "/image/doc-detail.png",
+                "selectedIconPath": "/image/doc-detail.png"
+            },
+            {
+                "text": "管理页面",
+                "pagePath": "pages/admin/admin",
+                "iconPath": "/image/afferent-three.png",
+                "selectedIconPath": "/image/afferent-three.png"
+            }
+        ]
+    },
+    "window": {
+        "navigationBarTitleText": "广工研究生导师双选系统",
+        "navigationBarBackgroundColor": "#ffffff",
+        "enablePullDownRefresh": true,
+        "backgroundColor": "#efefef",
+        "navigationBarTextStyle": "black"
+    },
+    "style": "v2",
+    "sitemapLocation": "sitemap.json",
+    "lazyCodeLoading": "requiredComponents"
+}
