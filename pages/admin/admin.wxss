@@ -531,59 +531,93 @@ textarea:focus {
   font-size: 16px;
 }
 
+
+
 /* ================================== */
-/* 新增：层级折叠表格样式              */
+/* 新增：层级折叠表格样式 (优化版)      */
 /* ================================== */
 
+/* 1. 表格容器：使用负边距“突围” */
+/* 技巧：不改 container，而是让表格向左右各撑开一些，显得更宽 */
 .table-box {
   background: #fff;
   border-radius: 12rpx;
   border: 1px solid #eee;
   overflow: hidden;
-  width: 100%;
   margin-top: 10rpx;
+  box-shadow: 0 4rpx 10rpx rgba(0,0,0,0.05);
+  /* 1. 宽度计算： */
+  /* 父容器 padding 是 20rpx (左) + 20rpx (右) = 40rpx */
+  /* 所以我们要让表格比 100% 再宽 40rpx */
+  width: calc(100% + 40rpx);
+
+  /* 2. 位置修正： */
+  /* 向左拉 20rpx，抵消父容器左边的 padding */
+  margin-left: -20rpx;
+  
+  /* 3. (可选) 向右拉 20rpx，确保右边也对齐 */
+  margin-right: -20rpx;
 }
 
-/* 表格行通用 */
+/* 2. 表格行通用 */
 .tr {
   display: flex;
   align-items: center;
   border-bottom: 1rpx solid #f0f0f0;
   min-height: 88rpx;
-  font-size: 26rpx;
+  font-size: 28rpx; /* 字体适中 */
 }
 
-/* 表头 */
+/* 3. 表头 */
 .header {
   background-color: #f8f9fa;
   font-weight: bold;
   color: #333;
+  font-size: 30rpx; /* 表头字体稍大 */
 }
 
-/* 列宽分配 */
+/* 4. 列宽分配 (核心：3列布局) */
+/* 总共 10 份：名称占 6 份，数字各占 2 份 */
+
 .col-name {
-  flex: 5; /* 名称列宽一些 */
+  flex: 4; /* 名称列最宽 */
   display: flex;
   align-items: center;
   overflow: hidden;
+  padding-left: 10rpx; 
   padding-right: 10rpx;
+  /* 如果文字太长，允许换行或者省略，这里设为自动 */
 }
+
 .col-num {
-  flex: 2; /* 数字列 */
-  text-align: center;
-  justify-content: center;
-  border-left: 1rpx solid #f8f8f8;
+  flex: 0 0 130rpx; 
+  width: 130rpx;
+  
+  display: flex;       /* 开启flex布局 */
+  justify-content: center; /* 水平绝对居中 */
+  align-items: center;     /* 垂直绝对居中 */
+  
+  border-left: 1rpx solid #f8f8f8; /* 分隔线 */
   font-family: Arial, sans-serif;
+  font-weight: bold;
+  color: #555;
+  font-size: 26rpx;
 }
 
 .td {
   height: 100%;
   display: flex;
   align-items: center;
-  padding: 10rpx 0;
+  padding: 12rpx 0; /* 增加一点垂直间距 */
 }
 
-/* 层级背景区分 */
+/* 5. 待发名额高亮色 (待发指标 > 0 时显示蓝色) */
+.text-primary {
+  color: #007aff !important; /* 蓝色高亮，醒目 */
+  font-weight: 800;
+}
+
+/* 下面的样式保持不变 */
 .row-level-1 {
   background-color: #fff;
   font-weight: bold;
@@ -600,7 +634,6 @@ textarea:focus {
   font-size: 24rpx;
 }
 
-/* 图标装饰 */
 .arrow {
   display: inline-block;
   width: 40rpx;
@@ -617,21 +650,10 @@ textarea:focus {
 }
 .name-text {
   display: flex;
-  flex-direction: column; /* 代码在上，名称在下，或根据需要调整 */
+  flex-direction: column; 
 }
 .name-text .code {
   font-size: 20rpx;
   color: #999;
   font-weight: normal;
-}
-
-/* 异常警告样式 */
-.text-danger {
-  color: #e02807 !important;
-  font-weight: bold;
-}
-.bg-warning {
-  background-color: #fffbe6;
-  color: #faad14;
-  font-weight: bold;
 }

@@ -58,50 +58,65 @@
   </block>
   </view>
 
-  <view class="container">
-  <view class="message-title">全院招生名额监控看板</view>
-
-  <view class="table-box">
-    <view class="tr header">
-      <view class="th col-name">专业名称</view>
-      <view class="th col-num">总标</view>
-      <view class="th col-num">待审</view>
-      <view class="th col-num">已招</view>
-    </view>
-
-    <block wx:for="{{quotaTreeList}}" wx:key="code">
-      <view 
-        class="tr row-level-{{item.level}} {{item.hasChildren ? 'is-parent' : ''}}" 
-        hidden="{{!item.show}}" 
-        bindtap="toggleRow" 
-        data-index="{{index}}">
-        
-        <view class="td col-name" style="padding-left: {{ (item.level - 1) * 30 }}rpx;">
-          <text class="arrow" wx:if="{{item.hasChildren}}">{{item.expanded ? '▼' : '▶'}}</text>
-          <text class="dot" wx:else>●</text>
-          
-          <view class="name-text">
-            <text class="code">{{item.code}}</text>
-            <text class="name">{{item.name}}</text>
-          </view>
-        </view>
-
-        <view class="td col-num">{{item.max_total}}</view>
-
-        <view class="td col-num {{item.pending_total < 0 ? 'text-danger' : ''}}">
-          {{item.pending_total}}
-        </view>
-
-        <view class="td col-num {{item.used_total > item.max_total ? 'bg-warning' : ''}}">
-          {{item.used_total}}
-        </view>
-
-      </view>
-    </block>
-  </view>
-  
-  <button class="submit" style="margin-top:20rpx;" bindtap="loadQuotaData">刷新数据</button>
+  <view class="message-title" style="margin-top: 30rpx; margin-bottom: 20rpx; font-size: 36rpx;">
+  全院招生名额监控看板
 </view>
+
+<view class="table-box">
+  
+  <view class="tr header">
+    <view class="th col-name" style="justify-content: flex-start; padding-left: 20rpx;">
+      专业名称
+    </view>
+    <view class="th col-num">
+      总指标
+    </view>
+    <view class="th col-num">
+      待发指标
+    </view>
+  </view>
+
+  <block wx:for="{{quotaTreeList}}" wx:key="code">
+    <view 
+      class="tr row-level-{{item.level}}" 
+      hidden="{{!item.show}}" 
+      bindtap="toggleRow" 
+      data-index="{{index}}"
+    >
+      
+      <view class="td col-name" style="padding-left: {{ (item.level - 1) * 30 + 20 }}rpx; justify-content: flex-start;">
+        
+        <view class="icon-box" style="width: 40rpx; text-align: center; margin-right: 10rpx;">
+          <text class="arrow" wx:if="{{item.hasChildren}}">{{item.expanded ? '▼' : '▶'}}</text>
+          <text class="dot" wx:else style="color: #ddd;">●</text>
+        </view>
+        
+        <view class="name-text">
+          <text class="code" style="font-size: 20rpx; color: #999;">{{item.code}}</text>
+          <text class="name">{{item.name}}</text>
+        </view>
+      </view>
+
+      <view class="td col-num" style="color: #333; font-weight: bold;">
+        {{item.max_total}}
+      </view>
+
+      <view class="td col-num {{item.pending_total > 0 ? 'text-primary' : ''}}">
+        {{item.pending_total}}
+      </view>
+
+    </view>
+  </block>
+
+  <view wx:if="{{quotaTreeList.length === 0}}" style="text-align: center; padding: 40rpx; color: #999; font-size: 26rpx;">
+    暂无数据，请点击刷新
+  </view>
+
+</view>
+
+<button class="submit" style="margin-top: 40rpx; width: 100%;" bindtap="loadQuotaData">
+  刷新监控数据
+</button>
 
  <!-- 学生搜索 -->
 <view>
