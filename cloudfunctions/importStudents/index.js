@@ -135,9 +135,9 @@ exports.main = async (event, context) => {
     const unmatchedStudents = []; // 用于存储专业代码匹配失败的学生
 
     // 跳过标题行，从第二行开始读取数据并存储到数据库
-    // Excel列顺序: 学生姓名(name), 账号(Id), 密码(Password), 类别(Bigtype), 专业(specialized), 专业代码, 学制
+    // Excel列顺序: 学生姓名(name), 账号(Id), 密码(Password), 类别(Bigtype), 专业(specialized), 专业代码, 学制, 是否占用指标
     for (let i = 1; i < sheetData.length; i++) { // 从索引 1 开始跳过标题行
-      const [name, Id, Password, Bigtype, specialized, specializedCode, studySystem] = sheetData[i];
+      const [name, Id, Password, Bigtype, specialized, specializedCode, studySystem, useQuota] = sheetData[i];
 
       if (name && Id && Password && Bigtype && specialized) {
         if (existingIds.includes(String(Id))) {
@@ -156,6 +156,7 @@ exports.main = async (event, context) => {
             specialized: String(specialized).trim(),
             specializedCode: codeStr, // 三级专业代码
             studySystem: String(studySystem || '').trim(), // 学制
+            useQuota: String(useQuota || '').trim() === '是', // 是否占用指标，"是"为true，其他为false
             ...defaultFields // 自动填充默认字段
           };
 
