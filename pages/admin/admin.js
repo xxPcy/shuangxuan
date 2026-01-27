@@ -1401,6 +1401,7 @@ chooseTeacherzhaoshengExcel() {
                   title: '更新成功',
                   icon: 'success'
                 });
+                this.loadQuotaData();
               } else {
                 // 拼接错误信息，result.error 为错误描述，result.details 为详细错误数组
                 const errorMsg = result.error || '上传失败，存在错误';
@@ -1879,26 +1880,66 @@ outPutexample() {
   },
   
   
-// 1. 调用云函数获取数据
+// 1. 从 TotalQuota 集合和教师汇总获取数据
 loadQuotaData() {
   wx.showLoading({ title: '统计数据中...' });
+  const db = wx.cloud.database();
   
-  wx.cloud.callFunction({
-    name: 'getQuotaStatistics',
-    success: res => {
+  // 只从 TotalQuota 获取数据
+  db.collection('TotalQuota').doc('totalquota').get()
+    .then(res => {
       wx.hideLoading();
-      if (res.result.success) {
-        // 拿到数据后，进行前端处理（计算层级、父子关系）
-        const processed = this.processTreeData(res.result.data);
-        this.setData({ quotaTreeList: processed });
-      } else {
-        wx.showToast({ title: '获取失败', icon: 'none' });
-      }
-    },
-    fail: err => {
-      wx.hideLoading();
-      console.error(err);
+      const totalQuotaData = res.data || {};
+    
+    // 将 level1_quota, level2_quota, level3_quota 转换为列表格式
+    const list = [];
+    
+    // 处理一级专业
+    if (totalQuotaData.level1_quota) {
+      Object.values(totalQuotaData.level1_quota).forEach(item => {
+        list.push({
+          code: item.code,
+          name: item.name,
+          type: 'level1',
+          max_total: item.quota || 0,              // 总指标（来自 TotalQuota.quota）
+          pending_total: item.pending_approval || 0  // 待发指标（来自 TotalQuota.pending_approval）
+        });
+      });
     }
+    
+    // 处理二级专业
+    if (totalQuotaData.level2_quota) {
+      Object.values(totalQuotaData.level2_quota).forEach(item => {
+        list.push({
+          code: item.code,
+          name: item.name,
+          type: 'level2',
+          max_total: item.quota || 0,
+          pending_total: item.pending_approval || 0
+        });
+      });
+    }
+    
+    // 处理三级专业
+    if (totalQuotaData.level3_quota) {
+      Object.values(totalQuotaData.level3_quota).forEach(item => {
+        list.push({
+          code: item.code,
+          name: item.name,
+          type: 'level3',
+          max_total: item.quota || 0,
+          pending_total: item.pending_approval || 0
+        });
+      });
+    }
+    
+    // 拿到数据后，进行前端处理（计算层级、父子关系）
+    const processed = this.processTreeData(list);
+    this.setData({ quotaTreeList: processed });
+  }).catch(err => {
+    wx.hideLoading();
+    console.error('加载数据失败:', err);
+    wx.showToast({ title: '获取失败', icon: 'none' });
   });
 },
 
