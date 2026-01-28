@@ -70,10 +70,10 @@
       专业名称
     </view>
     <view class="th col-num">
-      总指标
+      已导入指标
     </view>
     <view class="th col-num">
-      待发指标
+      被退回指标
     </view>
   </view>
 
@@ -190,11 +190,14 @@
         <button class="close-btn" bindtap="closeTeachermention">×</button>
     </view>
         <text>招生名额:</text>          
-          <block wx:for="{{quotaCategories}}" wx:key="key">
+          <block wx:for="{{availableQuotas}}" wx:key="code">
           <view class="quota-row">
-          <text>{{item.label}}: {{searchedTeacher[item.key]}}</text>
+          <text>{{item.name}}（{{item.code}}）：{{item.pending_quota}}</text>
           </view>
-        </block>    
+        </block>
+        <view wx:if="{{availableQuotas.length === 0}}" style="color: #999; padding: 10rpx 0;">
+          <text>暂无可用名额</text>
+        </view>
       <button data-id="{{searchedTeacher.ID}}" bindtap="showTeacherEditPopup" class="modify">编辑名额</button> 
       <!-- 重置密码按钮 -->
       <button class="ResetPassword" bindtap="resetTeacherPassword">重置密码</button>
@@ -224,13 +227,15 @@
     <text>编辑导师 {{selectedTeacher.name}} 招生名额</text>
     <button class="close-btn" bindtap="closeTeachermodify">×</button>
     <scroll-view scroll-y="true" >
-    <view wx:for="{{quotaCategories}}" wx:key="key">
+    <view wx:for="{{editableQuotas}}" wx:key="code">
 
       <view class="quota-row">
-        <text>{{item.label}}: {{selectedTeacher[item.key]}}</text>
-        <text>已变更: {{selectedTeacher.pendingChanges[item.key] || 0}}</text>
-        <button data-type="{{item.key}}" data-action="add" bindtap="modifyQuota" class="add">加一</button>
-        <button data-type="{{item.key}}" data-action="subtract" bindtap="modifyQuota" class="reduce">减一</button>
+        <text>{{item.name}}（{{item.code}}）</text>
+        <text>未确认: {{item.pending_quota}} | 已确认: {{item.used_quota}} | 可新增(被退回): {{item.rejected_quota}}</text>
+        <text wx:if="{{item.pendingChange > 0}}">已新增: +{{item.pendingChange}}</text>
+        <text wx:if="{{item.subtractFromPending > 0 || item.subtractFromUsed > 0}}">已减少: {{item.subtractFromPending > 0 ? '未确认-' + item.subtractFromPending : ''}}{{item.subtractFromPending > 0 && item.subtractFromUsed > 0 ? ', ' : ''}}{{item.subtractFromUsed > 0 ? '已确认-' + item.subtractFromUsed : ''}}</text>
+        <button data-code="{{item.code}}" data-action="add" bindtap="modifyQuota" class="add">加一</button>
+        <button data-code="{{item.code}}" data-action="subtract" bindtap="modifyQuota" class="reduce">减一</button>
       </view>
 
     </view>

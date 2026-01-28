@@ -29,6 +29,8 @@ Page({
     modify:false,//修改名额显示
     acceptstate:false,//用于保存修改指标的按钮状态（初始状态为可选）
     unbind:false,//用于解绑导师按钮的状态设置（初始状态为可选）
+    availableQuotas: [], // 存放有 pending_quota 的专业列表
+    editableQuotas: [], // 存放可编辑的名额列表（用于编辑弹窗）
     quotaTreeList: [], // 存放处理后的折叠树数据
     // 招生名额类别定义
     quotaCategories: [
@@ -619,14 +621,37 @@ searchTeacher() {
     .get()
     .then(res => {
       if (res.data && res.data.length > 0) {
-        // 这里选择第一个匹配的导师，可以根据需要显示多个结果
+        const teacher = res.data[0];
+        
+        // 从 quota_settings 中获取所有专业，显示 pending_quota（没有的显示为 0）
+        let availableQuotas = [];
+        if (teacher.quota_settings && Array.isArray(teacher.quota_settings)) {
+          availableQuotas = teacher.quota_settings.map(item => ({
+            code: item.code,
+            name: item.name,
+            pending_quota: item.pending_quota || 0
+          }));
+          
+          // 按专业代码排序：先按代码长度（一级2位、二级4位、三级6位），再按代码字母顺序
+          availableQuotas.sort((a, b) => {
+            // 先按代码长度排序（短的在前，即一级->二级->三级）
+            if (a.code.length !== b.code.length) {
+              return a.code.length - b.code.length;
+            }
+            // 同级别按代码字母顺序排序
+            return a.code.localeCompare(b.code);
+          });
+        }
+        
         this.setData({
-          searchedTeacher: res.data[0],
+          searchedTeacher: teacher,
+          availableQuotas: availableQuotas,  // 排序后的专业列表
           searchedshow: true,  // 显示导师的信息
         });
       } else {
         this.setData({
           searchedTeacher: null,
+          availableQuotas: [],
         });
         wx.showToast({
           title: '没有找到该导师',
@@ -645,15 +670,76 @@ searchTeacher() {
 
 /// 弹出修改导师信息窗口
 showTeacherEditPopup(event) {
-  // 直接使用搜索返回的导师数据，而不是在 this.data.teachers 中查找
+  // 直接使用搜索返回的导师数据
   const teacher = this.data.searchedTeacher;
   console.log("searchedTeacher", teacher);
   if (teacher) {
-    this.setData({
-      selectedTeacher: teacher,
-      modify: true,
-      acceptstate:false,//进入页面之后，就让按钮变为可用
-    });
+    // 先获取 TotalQuota 中的被退回指标数据
+    const db = wx.cloud.database();
+    db.collection('TotalQuota').doc('totalquota').get()
+      .then(totalQuotaRes => {
+        const totalQuotaData = totalQuotaRes.data || {};
+        
+        // 构建被退回指标的 Map（专业代码 -> 被退回数量）
+        const rejectedQuotaMap = {};
+        
+        // 处理一级专业
+        if (totalQuotaData.level1_quota) {
+          Object.values(totalQuotaData.level1_quota).forEach(item => {
+            rejectedQuotaMap[item.code] = item.pending_approval || 0;
+          });
+        }
+        // 处理二级专业
+        if (totalQuotaData.level2_quota) {
+          Object.values(totalQuotaData.level2_quota).forEach(item => {
+            rejectedQuotaMap[item.code] = item.pending_approval || 0;
+          });
+        }
+        // 处理三级专业
+        if (totalQuotaData.level3_quota) {
+          Object.values(totalQuotaData.level3_quota).forEach(item => {
+            rejectedQuotaMap[item.code] = item.pending_approval || 0;
+          });
+        }
+        
+        // 从 quota_settings 构建可编辑的名额列表
+        let editableQuotas = [];
+        if (teacher.quota_settings && Array.isArray(teacher.quota_settings)) {
+          editableQuotas = teacher.quota_settings.map(item => ({
+            code: item.code,
+            name: item.name,
+            pending_quota: item.pending_quota || 0,  // 已导入指标（未确认）
+            max_quota: item.max_quota || 0,
+            used_quota: item.used_quota || 0,  // 已确认指标
+            rejected_quota: rejectedQuotaMap[item.code] || 0,  // 被退回指标（来自TotalQuota）
+            pendingChange: 0,  // 暂存的变更值（加的数量）
+            subtractFromPending: 0,  // 从pending_quota减的数量
+            subtractFromUsed: 0  // 从used_quota减的数量
+          }));
+          
+          // 按专业代码排序：先按代码长度（一级->二级->三级），再按代码字母顺序
+          editableQuotas.sort((a, b) => {
+            if (a.code.length !== b.code.length) {
+              return a.code.length - b.code.length;
+            }
+            return a.code.localeCompare(b.code);
+          });
+        }
+        
+        this.setData({
+          selectedTeacher: teacher,
+          editableQuotas: editableQuotas,
+          modify: true,
+          acceptstate: false,  // 进入页面之后，就让按钮变为可用
+        });
+      })
+      .catch(err => {
+        console.error('获取TotalQuota失败:', err);
+        wx.showToast({
+          title: '获取数据失败',
+          icon: 'none'
+        });
+      });
   } else {
     console.error('未找到对应导师信息');
     wx.showToast({
@@ -756,39 +842,58 @@ handleTeacherPasswordInput(e) {
   });
 },
 
-// 修改暂存字段的值
-// 修改暂存字段的值
+// 修改暂存字段的值（基于 quota_settings）
+// 加一：从被退回指标中分配；减一：从已导入指标中扣除
 modifyQuota(e) {
-  const { type, action } = e.currentTarget.dataset; // 获取当前操作的类型和动作
-  const updatedTeacher = { ...this.data.selectedTeacher };
-
-  // 初始化暂存字段
-  updatedTeacher.pendingChanges = updatedTeacher.pendingChanges || {};
-  updatedTeacher.pendingChanges[type] = updatedTeacher.pendingChanges[type] || 0;
-
-  // 获取当前名额信息
-  const pendingQuota = updatedTeacher[`pending_${type}`] || 0; // pending 中名额
-  const allocatedQuota = updatedTeacher[type] || 0; // 已分配名额
-  const totalAvailable = pendingQuota + allocatedQuota; // pending + 已分配名额总和
-
+  const { code, action } = e.currentTarget.dataset; // 获取专业代码和动作
+  const editableQuotas = [...this.data.editableQuotas];
+  
+  // 找到对应的专业
+  const index = editableQuotas.findIndex(item => item.code === code);
+  if (index === -1) return;
+  
+  const quota = editableQuotas[index];
+  
   if (action === 'add') {
-    // 增加：只要 pendingChanges[type] 增加 1
-    updatedTeacher.pendingChanges[type]++;
-  } else if (action === 'subtract') {
-    // 减少：判断总名额是否足够扣除
-    if (totalAvailable + updatedTeacher.pendingChanges[type] > 0) {
-      updatedTeacher.pendingChanges[type]--; // 每次点击减1
+    // 增加：从被退回指标中分配
+    // 检查被退回指标是否足够（rejected_quota - 已经分配的变更）
+    const availableRejected = (quota.rejected_quota || 0) - (quota.pendingChange > 0 ? quota.pendingChange : 0);
+    if (availableRejected > 0) {
+      quota.pendingChange = (quota.pendingChange || 0) + 1;
     } else {
       wx.showToast({
-        title: '名额不足，无法继续减少',
+        title: `${quota.name}没有多余被退回指标`,
         icon: 'none'
       });
+      return;
+    }
+  } else if (action === 'subtract') {
+    // 减少指标逻辑：
+    // 1. 先从 pending_quota（未确认指标）中减
+    // 2. 如果 pending_quota 不够，再从 used_quota（已确认指标）中减
+    
+    // 计算当前可减的数量
+    const currentPendingAvailable = (quota.pending_quota || 0) - (quota.subtractFromPending || 0);
+    const currentUsedAvailable = (quota.used_quota || 0) - (quota.subtractFromUsed || 0);
+    
+    if (currentPendingAvailable > 0) {
+      // 优先从pending_quota减
+      quota.subtractFromPending = (quota.subtractFromPending || 0) + 1;
+    } else if (currentUsedAvailable > 0) {
+      // pending_quota不够，从used_quota减
+      quota.subtractFromUsed = (quota.subtractFromUsed || 0) + 1;
+    } else {
+      wx.showToast({
+        title: `${quota.name}没有可减的指标`,
+        icon: 'none'
+      });
+      return;
     }
   }
 
   // 更新页面数据
   this.setData({
-    selectedTeacher: updatedTeacher
+    editableQuotas: editableQuotas
   });
 },
 
@@ -801,253 +906,209 @@ modifyQuota(e) {
 
 
 
-// 保存变更到数据库并更新名额
+// 保存变更到数据库并更新名额（基于 quota_settings）
+// 加一：从被退回指标(pending_approval)分配到导师的pending_quota
+// 减一：先从pending_quota减，不够再从used_quota减，返还到TotalQuota的pending_approval
 saveTeacherChanges() {
   const updatedTeacher = this.data.selectedTeacher;
+  const editableQuotas = this.data.editableQuotas;
 
-  if (!updatedTeacher || !updatedTeacher.pendingChanges) {
+  // 筛选有变更的项目（加指标或减指标）
+  const changedQuotas = editableQuotas.filter(item => 
+    (item.pendingChange && item.pendingChange > 0) || 
+    (item.subtractFromPending && item.subtractFromPending > 0) ||
+    (item.subtractFromUsed && item.subtractFromUsed > 0)
+  );
+  
+  if (changedQuotas.length === 0) {
     wx.showToast({
       title: '没有需要保存的变更',
       icon: 'none'
     });
     return;
   }
+  
   this.setData({
-    acceptstate:true,//一点击保存就设置为禁用状态
-  })
+    acceptstate: true,  // 一点击保存就设置为禁用状态
+  });
 
   const db = wx.cloud.database();
-  const pendingChanges = updatedTeacher.pendingChanges;
-  console.log("pendingchange",pendingChanges);
-  const updateTeacherData = {}; // 更新导师数据
-  const updateQuotaData = {}; // 更新招生名额总表
   const currentTimestamp = new Date().getTime();
-
-  const fieldMapping = {
-    'kongzhiX': '控制科学与工程',
-    'dqgcxs': '电气工程学硕',
-    'dzxxzs': '电子信息专硕',
-    'dzxxlp': '电子信息联培',
-    'dqgczs': '电气工程专硕',
-    'dqgclp': '电气工程联培',
-    'dzxxsoldier': '电子信息士兵计划',
-    'dqgcsoldier': '电气工程士兵计划',
-    'dzxxpartTime': '电子信息非全日制',
-    'dqgcpartTime': '电气工程非全日制'
-  };
   
-  const formatPendingChanges = Object.entries(pendingChanges)
-    .map(([key, value]) => `${fieldMapping[key] || key}：${value}  ；`)
-    .join('\r\n'); // 用换行符拼接，使弹窗显示更美观
+  // 分离增加和减少的变更
+  const addChanges = changedQuotas.filter(item => item.pendingChange > 0);
+  const subtractChanges = changedQuotas.filter(item => 
+    (item.subtractFromPending > 0) || (item.subtractFromUsed > 0)
+  );
+  
+  // 格式化变更内容用于显示
+  let formatContent = '';
+  if (addChanges.length > 0) {
+    formatContent += '从被退回指标新增：\n' + addChanges.map(item => 
+      `${item.name}（${item.code}）：+${item.pendingChange}`
+    ).join('\n');
+  }
+  if (subtractChanges.length > 0) {
+    if (formatContent) formatContent += '\n\n';
+    formatContent += '减少指标：\n' + subtractChanges.map(item => {
+      let detail = `${item.name}（${item.code}）：`;
+      const parts = [];
+      if (item.subtractFromPending > 0) {
+        parts.push(`从未确认减${item.subtractFromPending}`);
+      }
+      if (item.subtractFromUsed > 0) {
+        parts.push(`从已确认减${item.subtractFromUsed}`);
+      }
+      return detail + parts.join('，');
+    }).join('\n');
+  }
   
   wx.showModal({
     title: '是否保存',
-    content: `修改的指标：\n${formatPendingChanges}  ` ,//返回的是一个object
+    content: formatContent,
     complete: (res) => {
       if (res.cancel) {
         this.setData({
-          acceptstate:false,//点击取消恢复可选状态
-        })
+          acceptstate: false,  // 点击取消恢复可选状态
+        });
+        return;
       }
 
       if (res.confirm) {
-        // 获取当前总池数据
-  db.collection('TotalQuota').doc('totalquota').get()
-  .then(res => {
-    const totalQuotaData = res.data;
-    let invalidChanges = []; // 用来存储不合法的变更
-
-    // 遍历 pendingChanges 构造数据
-    Object.keys(pendingChanges).forEach(type => {
-      const change = pendingChanges[type];
-      if (change !== 0) {
-        const currentQuota = totalQuotaData[`${type}_current`] || 0; // 当前剩余名额
-        const currentPendingQuota = updatedTeacher[`pending_${type}`] || 0; // pending 名额
-        const currentAllocatedQuota = updatedTeacher[type] || 0; // 已分配名额
-
-        // 校验是否足够扣除或分配
-        const totalAvailable = currentPendingQuota + currentAllocatedQuota;
-        if (change < 0 && totalAvailable < Math.abs(change)) {
-          invalidChanges.push(`${type} 名额不足，无法扣除`);
-        }
-
-        // 如果是减少导师的名额，强制收回并加回到总池的当前名额
-        if (change < 0) {
-          // 先扣除 pending 名额
-          if (currentPendingQuota >= Math.abs(change)) {
-            updateTeacherData[`pending_${type}`] = db.command.inc(change); // 从 pending 中扣除
-            updateQuotaData[`${type}_current`] = db.command.inc(-change); // 加回到当前名额
-          } else {
-            // 如果 pending 名额不足，从已分配名额中扣除
-            const remainingChange = Math.abs(change) - currentPendingQuota;
-            updateTeacherData[`pending_${type}`] = db.command.set(0); // 清空 pending
-            updateTeacherData[type] = db.command.inc(-remainingChange); // 扣除剩余部分
-            updateQuotaData[`${type}_current`] = db.command.inc(-change); // 加回到当前名额
-          }
-        } else {
-          // 如果是增加名额，直接减少总表的当前名额
-          if (currentQuota >= change) {
-            updateTeacherData[`pending_${type}`] = db.command.inc(change);
-            updateQuotaData[`${type}_current`] = db.command.inc(-change);
-          } else {
-            invalidChanges.push(`${type} 当前名额不足，无法分配`);
-          }
-        }
+        // 获取当前导师的最新数据
+        db.collection('Teacher').doc(updatedTeacher._id).get()
+          .then(teacherRes => {
+            const currentTeacher = teacherRes.data;
+            const currentQuotaSettings = currentTeacher.quota_settings || [];
+            
+            // 更新 quota_settings 中对应专业的 pending_quota 和 used_quota
+            const updatedQuotaSettings = currentQuotaSettings.map(setting => {
+              const change = changedQuotas.find(c => c.code === setting.code);
+              if (change) {
+                let newPendingQuota = setting.pending_quota || 0;
+                let newUsedQuota = setting.used_quota || 0;
+                
+                // 加一：增加 pending_quota
+                if (change.pendingChange > 0) {
+                  newPendingQuota += change.pendingChange;
+                }
+                
+                // 减一：先从 pending_quota 减，再从 used_quota 减
+                if (change.subtractFromPending > 0) {
+                  newPendingQuota -= change.subtractFromPending;
+                }
+                if (change.subtractFromUsed > 0) {
+                  newUsedQuota -= change.subtractFromUsed;
+                }
+                
+                return {
+                  ...setting,
+                  pending_quota: newPendingQuota,
+                  used_quota: newUsedQuota
+                };
+              }
+              return setting;
+            });
+            
+            // 更新导师数据
+            return db.collection('Teacher').doc(updatedTeacher._id).update({
+              data: {
+                quota_settings: updatedQuotaSettings,
+                approval_status: 'pending',
+                approval_timestamp: currentTimestamp
+              }
+            });
+          })
+          .then(() => {
+            // 同时更新 TotalQuota 集合
+            return db.collection('TotalQuota').doc('totalquota').get();
+          })
+          .then(totalQuotaRes => {
+            const totalQuotaData = totalQuotaRes.data;
+            const updateData = {};
+            
+            // 根据代码长度判断是哪个级别
+            changedQuotas.forEach(change => {
+              const code = change.code;
+              let levelKey;
+              if (code.length <= 2) {
+                levelKey = 'level1_quota';
+              } else if (code.length <= 4) {
+                levelKey = 'level2_quota';
+              } else {
+                levelKey = 'level3_quota';
+              }
+              
+              // 构建更新路径
+              const currentLevel = totalQuotaData[levelKey] || {};
+              if (currentLevel[code]) {
+                if (!updateData[levelKey]) {
+                  updateData[levelKey] = { ...currentLevel };
+                }
+                
+                let pendingApprovalChange = 0;
+                
+                // 加一：从被退回指标(pending_approval)分配，减少pending_approval
+                if (change.pendingChange > 0) {
+                  pendingApprovalChange -= change.pendingChange;
+                }
+                
+                // 减一：返还到被退回指标(pending_approval)，增加pending_approval
+                if (change.subtractFromPending > 0) {
+                  pendingApprovalChange += change.subtractFromPending;
+                }
+                if (change.subtractFromUsed > 0) {
+                  pendingApprovalChange += change.subtractFromUsed;
+                }
+                
+                updateData[levelKey][code] = {
+                  ...currentLevel[code],
+                  pending_approval: (currentLevel[code].pending_approval || 0) + pendingApprovalChange
+                };
+              }
+            });
+            
+            if (Object.keys(updateData).length > 0) {
+              updateData.last_updated = currentTimestamp;
+              return db.collection('TotalQuota').doc('totalquota').update({
+                data: updateData
+              });
+            }
+            return Promise.resolve();
+          })
+          .then(() => {
+            wx.showToast({
+              title: '保存成功',
+              icon: 'success'
+            });
+            this.setData({
+              selectedTeacher: null,
+              modify: false,
+              editableQuotas: [],
+              searchedshow: false  // 关闭导师信息显示
+            });
+            this.loadTeachers();  // 刷新导师数据
+            this.loadQuotaData();  // 刷新招生名额总表
+            
+            // 重新搜索导师以更新前端显示的数据
+            if (this.data.teacherQuery) {
+              this.searchTeacher();
+            }
+          })
+          .catch(err => {
+            console.error('保存失败:', err);
+            this.setData({
+              acceptstate: false
+            });
+            wx.showToast({
+              title: '保存失败，请重试',
+              icon: 'none'
+            });
+          });
       }
-    });
-
-    // 如果有不合法的变更，显示提示并终止操作
-    if (invalidChanges.length > 0) {
-      wx.showToast({
-        title: invalidChanges.join(', '),
-        icon: 'none'
-      });
-      throw new Error('名额不足'); // 终止执行
     }
-
-    // 添加时间戳和审批状态
-    updateTeacherData.approval_status = 'pending';
-    updateTeacherData.approval_timestamp = currentTimestamp;
-
-    console.log('更新数据：', updateTeacherData, updateQuotaData); // 调试输出
-
-    // 更新导师数据
-    return db.collection('Teacher').doc(updatedTeacher._id)
-      .update({ data: updateTeacherData });
-  })
-  .then(() => {
-    // 更新招生名额总表
-    if (Object.keys(updateQuotaData).length > 0) {
-      return db.collection('TotalQuota').doc('totalquota').update({
-        data: updateQuotaData
-      });
-    }
-    return Promise.resolve();
-  })
-  .then(() => {
-    wx.showToast({
-      title: '保存成功',
-      icon: 'success'
-    });
-    this.setData({
-      selectedTeacher: null
-    });
-    this.loadTeachers(); // 刷新导师数据
-    this.loadQuotaData(); // 刷新招生名额总表
-  })
-  .catch(err => {
-    console.error('保存失败:', err);
-    wx.showToast({
-      title: '保存失败，请重试',
-      icon: 'none'
-    });
   });
-      }
-    }
-  })
-
-  // // 获取当前总池数据
-  // db.collection('TotalQuota').doc('totalquota').get()
-  //   .then(res => {
-  //     const totalQuotaData = res.data;
-  //     let invalidChanges = []; // 用来存储不合法的变更
-
-  //     // 遍历 pendingChanges 构造数据
-  //     Object.keys(pendingChanges).forEach(type => {
-  //       const change = pendingChanges[type];
-  //       if (change !== 0) {
-  //         const currentQuota = totalQuotaData[`${type}_current`] || 0; // 当前剩余名额
-  //         const currentPendingQuota = updatedTeacher[`pending_${type}`] || 0; // pending 名额
-  //         const currentAllocatedQuota = updatedTeacher[type] || 0; // 已分配名额
-
-  //         // 校验是否足够扣除或分配
-  //         const totalAvailable = currentPendingQuota + currentAllocatedQuota;
-  //         if (change < 0 && totalAvailable < Math.abs(change)) {
-  //           invalidChanges.push(`${type} 名额不足，无法扣除`);
-  //         }
-
-  //         // 如果是减少导师的名额，强制收回并加回到总池的当前名额
-  //         if (change < 0) {
-  //           // 先扣除 pending 名额
-  //           if (currentPendingQuota >= Math.abs(change)) {
-  //             updateTeacherData[`pending_${type}`] = db.command.inc(change); // 从 pending 中扣除
-  //             updateQuotaData[`${type}_current`] = db.command.inc(-change); // 加回到当前名额
-  //           } else {
-  //             // 如果 pending 名额不足，从已分配名额中扣除
-  //             const remainingChange = Math.abs(change) - currentPendingQuota;
-  //             updateTeacherData[`pending_${type}`] = db.command.set(0); // 清空 pending
-  //             updateTeacherData[type] = db.command.inc(-remainingChange); // 扣除剩余部分
-  //             updateQuotaData[`${type}_current`] = db.command.inc(-change); // 加回到当前名额
-  //           }
-  //         } else {
-  //           // 如果是增加名额，直接减少总表的当前名额
-  //           if (currentQuota >= change) {
-  //             updateTeacherData[`pending_${type}`] = db.command.inc(change);
-  //             updateQuotaData[`${type}_current`] = db.command.inc(-change);
-  //           } else {
-  //             invalidChanges.push(`${type} 当前名额不足，无法分配`);
-  //           }
-  //         }
-  //       }
-  //     });
-
-  //     // 如果有不合法的变更，显示提示并终止操作
-  //     if (invalidChanges.length > 0) {
-  //       wx.showToast({
-  //         title: invalidChanges.join(', '),
-  //         icon: 'none'
-  //       });
-  //       throw new Error('名额不足'); // 终止执行
-  //     }
-
-  //     // 添加时间戳和审批状态
-  //     updateTeacherData.approval_status = 'pending';
-  //     updateTeacherData.approval_timestamp = currentTimestamp;
-
-  //     console.log('更新数据：', updateTeacherData, updateQuotaData); // 调试输出
-
-  //     // 更新导师数据
-  //     return db.collection('Teacher').doc(updatedTeacher._id)
-  //       .update({ data: updateTeacherData });
-  //   })
-  //   .then(() => {
-  //     // 更新招生名额总表
-  //     if (Object.keys(updateQuotaData).length > 0) {
-  //       return db.collection('TotalQuota').doc('totalquota').update({
-  //         data: updateQuotaData
-  //       });
-  //     }
-  //     return Promise.resolve();
-  //   })
-  //   .then(() => {
-  //     wx.showToast({
-  //       title: '保存成功',
-  //       icon: 'success'
-  //     });
-  //     this.setData({
-  //       selectedTeacher: null
-  //     });
-  //     this.loadTeachers(); // 刷新导师数据
-  //     this.loadQuotaData(); // 刷新招生名额总表
-  //   })
-  //   .catch(err => {
-  //     console.error('保存失败:', err);
-  //     wx.showToast({
-  //       title: '保存失败，请重试',
-  //       icon: 'none'
-  //     });
-  //   });
 },
-
-
-
-
-
-  
-  
-  
-
-
 
   // 处理学生搜索输入
   onStudentSearchInput(e) {

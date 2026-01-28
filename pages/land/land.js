@@ -73,6 +73,10 @@ Page({
                 // phoneNumber:uq.phoneNumber,
                 // name:uq.name,
                 specialized:uq.specialized,
+                specializedCode: uq.specializedCode || '',  // 三级专业代码
+                level1_code: uq.level1_code || '',  // 一级专业代码
+                level2_code: uq.level2_code || '',  // 二级专业代码
+                level3_code: uq.level3_code || '',  // 三级专业代码
                 // description:uq.description,
                 // preselection:uq.preselection,
                 // Bigtype:uq.Bigtype,
