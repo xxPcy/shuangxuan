@@ -13,6 +13,9 @@ Page({
     announcements: [], // 公告列表
     category:'',//学生报考类别
     stu_id:'',//学生的_id
+    specializedCode: '', // 学生三级专业代码
+    level1Code: '', // 学生一级专业代码
+    level2Code: '', // 学生二级专业代码
   },
 
   // 加载公告
@@ -75,13 +78,84 @@ viewAnnouncement(event) {
     this.setData({
       stu_id:stu_id,
       category:data.specialized,//从缓存数据中获取学生的报考专业
+      specializedCode: data.specializedCode || '', // 三级专业代码
+      level1Code: data.level1_code || '', // 一级专业代码
+      level2Code: data.level2_code || '', // 二级专业代码
     }, () => {
       this.loadTeachers(); // 加载导师数据
     });
   },
 
-  // 加载导师数据
+  // 加载导师数据（根据学生专业代码从QuotaHolders查找有名额的导师）
   loadTeachers() {
+    wx.showLoading({
+      title: '数据载入中...',
+    });
+    
+    const that = this;
+    const { specializedCode, level1Code, level2Code, page, pageSize } = this.data;
+    
+    // 如果有专业代码，使用新的基于QuotaHolders的查询方式
+    if (specializedCode || level1Code || level2Code) {
+      wx.cloud.callFunction({
+        name: 'getTeachersBySpecialty',
+        data: {
+          specializedCode: specializedCode,
+          level1Code: level1Code,
+          level2Code: level2Code,
+          page: page,
+          pageSize: pageSize
+        },
+        success: res => {
+          wx.hideLoading();
+          if (res.result?.success) {
+            const newTeachers = res.result.data;
+            const hasMore = res.result.hasMore;
+            console.log("根据专业代码获取的导师列表:", newTeachers);
+            
+            if (page === 1) {
+              // 首次加载
+              that.setData({
+                teachers: newTeachers,
+                filteredTeachers: newTeachers,
+                hasMore: hasMore
+              });
+            } else {
+              // 加载更多
+              that.setData({
+                teachers: that.data.teachers.concat(newTeachers),
+                filteredTeachers: that.data.filteredTeachers.concat(newTeachers),
+                hasMore: hasMore
+              });
+            }
+            
+            if (!hasMore && newTeachers.length === 0 && page > 1) {
+              wx.showToast({
+                title: '已加载全部数据',
+                icon: 'none'
+              });
+            }
+          } else {
+            console.error('获取导师数据失败:', res.result?.message);
+            // 如果新方法失败，回退到旧方法
+            that.loadTeachersLegacy();
+          }
+        },
+        fail: err => {
+          wx.hideLoading();
+          console.error('云函数调用失败:', err);
+          // 回退到旧方法
+          that.loadTeachersLegacy();
+        }
+      });
+    } else {
+      // 没有专业代码，使用旧的加载方式
+      this.loadTeachersLegacy();
+    }
+  },
+
+  // 旧的加载导师方式（作为备用）
+  loadTeachersLegacy() {
     wx.showLoading({
       title: '数据载入中...',
     });
@@ -184,7 +258,12 @@ viewAnnouncement(event) {
   // 到达页面底部时加载更多数据
   onReachBottom() {
     if (this.data.hasMore) {
-      this.loadTeachers();
+      // 增加页码后加载更多
+      this.setData({
+        page: this.data.page + 1
+      }, () => {
+        this.loadTeachers();
+      });
     }
   },
 
@@ -208,7 +287,8 @@ viewAnnouncement(event) {
       teachers: [],
       filteredTeachers: [],
       page: 1,
-      hasMore: true
+      hasMore: true,
+      searchQuery: '' // 清空搜索
     }, () => {
       this.loadTeachers(); // 加载数据
       wx.stopPullDownRefresh(); // 停止下拉刷新动画
