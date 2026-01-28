@@ -14,8 +14,6 @@ Page({
     category:'',//学生报考类别
     stu_id:'',//学生的_id
     specializedCode: '', // 学生三级专业代码
-    level1Code: '', // 学生一级专业代码
-    level2Code: '', // 学生二级专业代码
   },
 
   // 加载公告
@@ -74,40 +72,44 @@ viewAnnouncement(event) {
     const data = wx.getStorageSync('user');
     console.log("缓存数据",data);
     const stu_id=data._id;
-    console.log("学生_id",stu_id);
+    
+    // 获取三级专业代码
+    const specializedCode = data.specializedCode || data.level3_code || '';
+    console.log("学生三级专业代码:", specializedCode);
+    
     this.setData({
       stu_id:stu_id,
-      category:data.specialized,//从缓存数据中获取学生的报考专业
-      specializedCode: data.specializedCode || '', // 三级专业代码
-      level1Code: data.level1_code || '', // 一级专业代码
-      level2Code: data.level2_code || '', // 二级专业代码
+      category:data.specialized,
+      specializedCode: specializedCode,
     }, () => {
       this.loadTeachers(); // 加载导师数据
     });
   },
 
-  // 加载导师数据（根据学生专业代码从QuotaHolders查找有名额的导师）
+  // 加载导师数据（根据学生三级专业代码从QuotaHolders查找有名额的导师）
   loadTeachers() {
     wx.showLoading({
       title: '数据载入中...',
     });
     
     const that = this;
-    const { specializedCode, level1Code, level2Code, page, pageSize } = this.data;
+    const { specializedCode, page, pageSize } = this.data;
     
-    // 如果有专业代码，使用新的基于QuotaHolders的查询方式
-    if (specializedCode || level1Code || level2Code) {
+    console.log("loadTeachers - 三级专业代码:", specializedCode);
+    
+    // 如果有三级专业代码，使用新的基于QuotaHolders的查询方式
+    if (specializedCode) {
+      console.log("使用 getTeachersBySpecialty 查询导师");
       wx.cloud.callFunction({
         name: 'getTeachersBySpecialty',
         data: {
           specializedCode: specializedCode,
-          level1Code: level1Code,
-          level2Code: level2Code,
           page: page,
           pageSize: pageSize
         },
         success: res => {
           wx.hideLoading();
+          console.log("getTeachersBySpecialty 返回结果:", res.result);
           if (res.result?.success) {
             const newTeachers = res.result.data;
             const hasMore = res.result.hasMore;
