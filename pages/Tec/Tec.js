@@ -16,19 +16,7 @@ Page({
     Pmd: '',
 
     pendingChanges: [],
-    quotaInfo: [], // 保存各类别名额信息
-    quotaCategories: [
-      { label: '电子信息（专硕）', key: 'dzxxzs' },
-      { label: '控制科学与工程（学硕）', key: 'kongzhiX' },
-      { label: '电气工程（专硕）', key: 'dqgczs' },
-      { label: '电气工程（学硕）', key: 'dqgcxs' },
-      { label: '电子信息（联培）', key: 'dzxxlp' },
-      { label: '电气工程（联培）', key: 'dqgclp' },
-      {label:'电子信息(士兵计划)',key:'dzxxsoldier'},
-      {label:'电子信息(非全日制)',key:'dzxxpartTime'},
-      {label:'电气工程(士兵计划)',key:'dqgcsoldier'},
-      {label:'电气工程(非全日制)',key:'dqgcpartTime'},
-    ],
+    quotaInfo: [], // 保存各类别名额信息（优先读取 quota_settings）
     announcements: [], // 公告列表
   },
 
@@ -123,30 +111,92 @@ Page({
       return;
     }
 
-    db.collection('Teacher')
-      .doc(teacherId)
-      .get()
-      .then((response) => {
-        const teacherData = response.data;
+    Promise.all([
+      db.collection('Teacher').doc(teacherId).get(),
+      db.collection('Logic').limit(1000).get()
+    ])
+      .then(([teacherRes, logicRes]) => {
+        const teacherData = teacherRes.data || {};
+        const logicRows = logicRes.data || [];
 
-        // 动态生成名额信息，重新计算总名额
-        const quotaInfo = this.data.quotaCategories.map((category) => {
-          const used = teacherData[`used_${category.key}`] || 0; // 已使用名额
-          const remaining = teacherData[category.key] || 0; // 剩余名额
-          const total = used + remaining; // 动态计算总名额
+        let quotaInfo = [];
 
-          return {
-            label: category.label, // 类别名称
-            total, // 总名额 = 已使用 + 剩余
-            used, // 已使用名额
-            remaining // 剩余名额
+        // 新版：展示 quota_settings 的一级/二级/三级全部层级
+        if (Array.isArray(teacherData.quota_settings) && teacherData.quota_settings.length > 0) {
+          const typeText = {
+            level1: '一级',
+            level2: '二级',
+            level3: '三级'
           };
-        });
 
-        // 更新数据
-        this.setData({
-          quotaInfo
-        });
+          const orderMap = { level1: 1, level2: 2, level3: 3 };
+
+          quotaInfo = teacherData.quota_settings
+            .filter((item) => ['level1', 'level2', 'level3'].includes(item.type))
+            .map((item) => {
+              const total = Number(item.max_quota || 0);
+              const used = Number(item.used_quota || 0);
+              const remaining = Math.max(total - used, 0);
+              const pending = Number(item.pending_quota || 0);
+              return {
+                key: item.code,
+                label: item.name || item.code,
+                level: typeText[item.type] || item.type,
+                levelOrder: orderMap[item.type] || 99,
+                total,
+                used,
+                remaining,
+                pending
+              };
+            })
+            .sort((a, b) => {
+              if (a.levelOrder !== b.levelOrder) return a.levelOrder - b.levelOrder;
+              return String(a.key).localeCompare(String(b.key));
+            });
+
+          // 若逻辑表里有该 code 的标准名称，则覆盖显示（避免历史名称不统一）
+          const logicNameMap = {};
+          logicRows.forEach((row) => {
+            if (row.level1_code) logicNameMap[String(row.level1_code)] = row.level1_name;
+            if (row.level2_code) logicNameMap[String(row.level2_code)] = row.level2_name;
+            if (row.level3_code) logicNameMap[String(row.level3_code)] = row.level3_name;
+          });
+          quotaInfo = quotaInfo.map((item) => ({
+            ...item,
+            label: logicNameMap[String(item.key)] || item.label
+          }));
+        } else {
+          // 兼容旧版字段，避免老数据无法展示
+          const legacyCategories = [
+            { label: '电子信息（专硕）', key: 'dzxxzs' },
+            { label: '控制科学与工程（学硕）', key: 'kongzhiX' },
+            { label: '电气工程（专硕）', key: 'dqgczs' },
+            { label: '电气工程（学硕）', key: 'dqgcxs' },
+            { label: '电子信息（联培）', key: 'dzxxlp' },
+            { label: '电气工程（联培）', key: 'dqgclp' },
+            { label: '电子信息(士兵计划)', key: 'dzxxsoldier' },
+            { label: '电子信息(非全日制)', key: 'dzxxpartTime' },
+            { label: '电气工程(士兵计划)', key: 'dqgcsoldier' },
+            { label: '电气工程(非全日制)', key: 'dqgcpartTime' }
+          ];
+
+          quotaInfo = legacyCategories.map((category) => {
+            const used = teacherData[`used_${category.key}`] || 0;
+            const remaining = teacherData[category.key] || 0;
+            return {
+              key: category.key,
+              label: category.label,
+              level: '旧版',
+              levelOrder: 9,
+              total: used + remaining,
+              used,
+              remaining,
+              pending: Number(teacherData[`pending_${category.key}`] || 0)
+            };
+          });
+        }
+
+        this.setData({ quotaInfo });
       })
       .catch((err) => {
         console.error('加载名额数据失败:', err);
@@ -458,31 +508,60 @@ Page({
 
 
 //防止两个设备接受名额
-  handleApproval(e) {
-    const { type, action } = e.currentTarget.dataset;
-    const pendingChange = this.data.pendingChanges.find(
-      (item) => item.key === type
-    );
-  
-    if (!pendingChange) {
-      wx.showToast({ title: '未找到相关数据', icon: 'none' });
+  handleApprove(e) {
+    this.handleApprovalAction(e, 'approve');
+  },
+
+  handleReject(e) {
+    this.handleApprovalAction(e, 'reject');
+  },
+
+  handleApprovalAction(e, action) {
+    const currentDataset = (e && e.currentTarget && e.currentTarget.dataset) || {};
+    const targetDataset = (e && e.target && e.target.dataset) || {};
+    const type = currentDataset.type || targetDataset.type;
+    const indexValue = currentDataset.index !== undefined ? currentDataset.index : targetDataset.index;
+    const index = Number(indexValue);
+
+    const pendingList = Array.isArray(this.data.pendingChanges) ? this.data.pendingChanges : [];
+    let pendingChange = null;
+
+    if (type !== undefined && type !== null && String(type) !== '') {
+      pendingChange = pendingList.find((item) => {
+        const itemType = item.key || item.type || item.code;
+        return itemType !== undefined && itemType !== null && String(itemType) === String(type);
+      });
+    }
+
+    if (!pendingChange && Number.isInteger(index) && pendingList[index]) {
+      pendingChange = pendingList[index];
+    }
+
+    if (!pendingChange || !action) {
+      console.warn('审批参数异常', { type, indexValue, pendingList });
+      wx.showToast({ title: '审批参数异常，请重试', icon: 'none' });
       return;
     }
-  
+
+    const resolvedType = pendingChange.key || pendingChange.type || pendingChange.code || type;
+    if (resolvedType === undefined || resolvedType === null || String(resolvedType) === '') {
+      wx.showToast({ title: '未找到名额类型，请刷新', icon: 'none' });
+      return;
+    }
+
     const { teacherId, pendingValue } = pendingChange;
     const validValue = Number(pendingValue);
-  
+
     if (isNaN(validValue) || validValue === 0) {
       wx.showToast({ title: '名额值不合法', icon: 'none' });
       return;
     }
-  
-    const category = this.data.quotaCategories.find(item => item.key === type);
-    if (!category) {
-      wx.showToast({ title: '未找到对应的专业信息', icon: 'none' });
-      return;
-    }
-  
+
+    const category = {
+      key: resolvedType,
+      label: pendingChange.label || resolvedType
+    };
+
     wx.showModal({
       title: '确认操作',
       content: action === 'approve' ? '接受该名额，需要将此名额使用完，请确认选择' : '拒绝后无法撤销操作，请确认选择',
@@ -490,68 +569,100 @@ Page({
       confirmText: action === 'approve' ? '同意' : '拒绝',
       cancelText: '取消',
       success: async (res) => {
-        if (res.confirm) {
-          try {
-            // 开始事务
-            const db = wx.cloud.database();
-            const _ = db.command;
-  
-            // 获取当前pending值并锁定记录
-            const teacherRes = await db.collection('Teacher').doc(teacherId).get();
-            const currentPending = teacherRes.data[`pending_${type}`] || 0;
-  
+        if (!res.confirm) {
+          wx.showToast({ title: '操作已取消', icon: 'none' });
+          return;
+        }
+
+        try {
+          const db = wx.cloud.database();
+          const _ = db.command;
+          const teacherRes = await db.collection('Teacher').doc(teacherId).get();
+          const teacher = teacherRes.data || {};
+
+          const hasQuotaSettings = Array.isArray(teacher.quota_settings) && teacher.quota_settings.length > 0;
+          const quotaIndex = hasQuotaSettings
+            ? teacher.quota_settings.findIndex((item) => String(item.code) === String(resolvedType))
+            : -1;
+
+          // 新版 quota_settings 审批逻辑（只有匹配到 code 才走）
+          if (hasQuotaSettings && quotaIndex >= 0) {
+
+            const currentPending = Number(teacher.quota_settings[quotaIndex].pending_quota || 0);
+            if (currentPending <= 0) {
+              wx.showToast({ title: '名额已被处理，请刷新', icon: 'none' });
+              return;
+            }
+
+            if (action === 'approve') {
+              await db.collection('Teacher').doc(teacherId).update({
+                data: {
+                  [`quota_settings.${quotaIndex}.max_quota`]: _.inc(currentPending),
+                  [`quota_settings.${quotaIndex}.pending_quota`]: 0,
+                  approval_status: 'approved'
+                }
+              });
+              wx.showToast({ title: '审批成功', icon: 'success' });
+            } else if (action === 'reject') {
+              await db.collection('Teacher').doc(teacherId).update({
+                data: {
+                  [`quota_settings.${quotaIndex}.pending_quota`]: 0,
+                  approval_status: 'rejected'
+                }
+              });
+
+              await db.collection('RejectedQuota').add({
+                data: {
+                  teacherName: teacher.name,
+                  teacherId: teacher.Id,
+                  key: resolvedType,
+                  label: category.label,
+                  rejectedValue: currentPending,
+                  reason: '主动拒绝',
+                  timestamp: new Date()
+                }
+              });
+              wx.showToast({ title: '操作成功', icon: 'success' });
+            }
+          } else {
+            // 兼容旧版字段，或 quota_settings 存在但本次是旧键值（如 dzxxzs）
+            const currentPending = teacher[`pending_${resolvedType}`] || 0;
             if (currentPending === 0) {
               wx.showToast({ title: '名额已被处理，请刷新', icon: 'none' });
               return;
             }
-  
+
             if (action === 'approve') {
-              // 在事务中更新
               await db.collection('Teacher').doc(teacherId).update({
                 data: {
-                  [`${type}`]: _.inc(validValue),
-                  [`pending_${type}`]: 0
+                  [`${resolvedType}`]: _.inc(validValue),
+                  [`pending_${resolvedType}`]: 0,
                 }
               });
-              
               wx.showToast({ title: '审批成功', icon: 'success' });
             } else if (action === 'reject') {
-              // 拒绝操作使用事务
-              wx.cloud.callFunction({
+              await wx.cloud.callFunction({
                 name: 'rejectQuota',
                 data: {
                   teacherId,
-                  type,
+                  type: resolvedType,
                   validValue,
                   category
-                },
-                success: res => {
-                  wx.showToast({ title: '操作成功', icon: 'success' })
-                  this.loadPendingChanges();
-                  this.loadQuotaInfo();
-                },
-                fail: err => {
-                  wx.showToast({ title: '操作失败', icon: 'none' })
-                  console.error(err)
                 }
-              })
-              
+              });
+              wx.showToast({ title: '操作成功', icon: 'success' });
             }
-  
-            this.loadPendingChanges();
-            this.loadQuotaInfo();
-          } catch (err) {
-            console.error('操作失败:', err);
-            wx.showToast({ title: '操作失败，请稍后重试', icon: 'none' });
           }
-        } else {
-          wx.showToast({ title: '操作已取消', icon: 'none' });
+
+          this.loadPendingChanges();
+          this.loadQuotaInfo();
+        } catch (err) {
+          console.error('操作失败:', err);
+          wx.showToast({ title: '操作失败，请稍后重试', icon: 'none' });
         }
       }
     });
   },
-  
-
 
 
   /**
