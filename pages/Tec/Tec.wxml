@@ -38,11 +38,12 @@
   <text class="title">招生名额信息</text>
   <block wx:for="{{quotaInfo}}" wx:key="key">
     <view class="quota-item">
-      <text>{{item.label}}:</text>
+      <text>[{{item.level}}] {{item.key}} {{item.label}}:</text>
       <view>
         <text >总名额: <text style="font-weight: bold;">{{item.total}}</text></text>
         <text>已使用: <text style="font-weight: bold;">{{item.used}}</text></text>
         <text>剩余: <text style="font-weight: bold;">{{item.remaining}}</text></text>
+        <text wx:if="{{item.pending > 0}}">待审批: <text style="font-weight: bold;">{{item.pending}}</text></text>
       </view>
     </view>
   </block>
