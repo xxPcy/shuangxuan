@@ -236,31 +236,9 @@ Page({
       }
   
   
-      const fieldMapping = {
-        '控制科学与工程': 'kongzhiX',
-        '电气工程学硕': 'dqgcxs',
-        '电子信息专硕': 'dzxxzs',
-        '电子信息联培': 'dzxxlp',
-        '电气工程专硕': 'dqgczs',
-        '电气工程联培': 'dqgclp',
-        '电子信息士兵计划': 'dzxxsoldier',
-        '电气工程士兵计划': 'dqgcsoldier',
-        '电子信息非全日制': 'dzxxpartTime',
-        '电气工程非全日制': 'dqgcpartTime',
-      };
-  
-      const field = fieldMapping[selectedStudent.specialized] || null;
-      if (!field || Tec[field] <= 0) {
-        wx.hideLoading();
-        wx.showToast({
-          title: '招生名额不足',
-          icon: 'none',
-        });
-        return;
-      }
-  
-      const usedField = `used_${field}`;
-  
+      const selectedField = latestStudent.selectedField;
+      const level3Code = latestStudent.level3_code || latestStudent.specializedCode || '';
+
       // **事务更新学生和导师信息**
       const studentUpdate = db.collection('Stu').doc(selectedStudent.studentId).update({
         data: {
@@ -269,30 +247,101 @@ Page({
           selectedTecId: Tec.Id,
         },
       });
-  
-      const teacherUpdate = db.collection('Teacher').doc(Tec._id).update({
-        data: {
-          prestudent: _.pull({
-            studentId: selectedStudent.studentId,
-          }),
-          [field]: _.inc(-1),
-          [usedField]: _.inc(1),
-          student: _.push({
-            studentId: selectedStudent.studentId,
-            specialized: selectedStudent.specialized,
-            studentName: selectedStudent.studentName,
-            phoneNumber: selectedStudent.phoneNumber,
-            Id: selectedStudent.Id,
-            categoryKey: field,
-          }),
-        },
-      });
+
+      let teacherUpdate;
+
+      // 新版：优先按 quota_settings(level3_code) 扣减
+      if (Array.isArray(Tec.quota_settings) && Tec.quota_settings.length > 0 && level3Code) {
+        const quotaIndex = Tec.quota_settings.findIndex((item) =>
+          item.type === 'level3' && String(item.code) === String(level3Code)
+        );
+
+        if (quotaIndex < 0) {
+          wx.hideLoading();
+          this.setData({ acceptstate: false });
+          wx.showToast({
+            title: '未匹配到该学生专业对应指标',
+            icon: 'none'
+          });
+          return;
+        }
+
+        const matchedQuota = Tec.quota_settings[quotaIndex];
+        const total = Number(matchedQuota.max_quota || 0);
+        const used = Number(matchedQuota.used_quota || 0);
+        if (total - used <= 0) {
+          wx.hideLoading();
+          this.setData({ acceptstate: false });
+          wx.showToast({
+            title: '招生名额不足',
+            icon: 'none',
+          });
+          return;
+        }
+
+        teacherUpdate = db.collection('Teacher').doc(Tec._id).update({
+          data: {
+            prestudent: _.pull({
+              studentId: selectedStudent.studentId,
+            }),
+            [`quota_settings.${quotaIndex}.used_quota`]: _.inc(1),
+            student: _.push({
+              studentId: selectedStudent.studentId,
+              specialized: selectedStudent.specialized,
+              studentName: selectedStudent.studentName,
+              phoneNumber: selectedStudent.phoneNumber,
+              Id: selectedStudent.Id,
+              categoryKey: matchedQuota.code,
+            }),
+          },
+        });
+      } else {
+        // 兼容旧版字段
+        const legacyField = selectedField || null;
+        if (!legacyField || Tec[legacyField] <= 0) {
+          wx.hideLoading();
+          this.setData({ acceptstate: false });
+          wx.showToast({
+            title: '招生名额不足',
+            icon: 'none',
+          });
+          return;
+        }
+
+        teacherUpdate = db.collection('Teacher').doc(Tec._id).update({
+          data: {
+            prestudent: _.pull({
+              studentId: selectedStudent.studentId,
+            }),
+            [legacyField]: _.inc(-1),
+            [`used_${legacyField}`]: _.inc(1),
+            student: _.push({
+              studentId: selectedStudent.studentId,
+              specialized: selectedStudent.specialized,
+              studentName: selectedStudent.studentName,
+              phoneNumber: selectedStudent.phoneNumber,
+              Id: selectedStudent.Id,
+              categoryKey: legacyField,
+            }),
+          },
+        });
+      }
   
       await Promise.all([studentUpdate, teacherUpdate]);
   
       // **检查招生名额**
       const teacherData = await db.collection('Teacher').doc(Tec_id).get();
-      if (teacherData.data[field] <= 0) {
+      let quotaExhausted = false;
+      if (Array.isArray(teacherData.data.quota_settings) && level3Code) {
+        const currentQuota = teacherData.data.quota_settings.find((item) =>
+          item.type === 'level3' && String(item.code) === String(level3Code)
+        );
+        quotaExhausted = !!currentQuota && Number(currentQuota.max_quota || 0) - Number(currentQuota.used_quota || 0) <= 0;
+      } else if (selectedField) {
+        quotaExhausted = Number(teacherData.data[selectedField] || 0) <= 0;
+      }
+
+      if (quotaExhausted) {
         const studentsToReturn = this.data.prestudent
           .filter((s) => s.specialized === item.specialized && s.studentId !== item.studentId)
           .map((s) => s.studentId);

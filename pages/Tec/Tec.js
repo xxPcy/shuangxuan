@@ -16,19 +16,7 @@ Page({
     Pmd: '',
 
     pendingChanges: [],
-    quotaInfo: [], // 保存各类别名额信息
-    quotaCategories: [
-      { label: '电子信息（专硕）', key: 'dzxxzs' },
-      { label: '控制科学与工程（学硕）', key: 'kongzhiX' },
-      { label: '电气工程（专硕）', key: 'dqgczs' },
-      { label: '电气工程（学硕）', key: 'dqgcxs' },
-      { label: '电子信息（联培）', key: 'dzxxlp' },
-      { label: '电气工程（联培）', key: 'dqgclp' },
-      {label:'电子信息(士兵计划)',key:'dzxxsoldier'},
-      {label:'电子信息(非全日制)',key:'dzxxpartTime'},
-      {label:'电气工程(士兵计划)',key:'dqgcsoldier'},
-      {label:'电气工程(非全日制)',key:'dqgcpartTime'},
-    ],
+    quotaInfo: [], // 保存各类别名额信息（优先读取 quota_settings）
     announcements: [], // 公告列表
   },
 
@@ -129,19 +117,51 @@ Page({
       .then((response) => {
         const teacherData = response.data;
 
-        // 动态生成名额信息，重新计算总名额
-        const quotaInfo = this.data.quotaCategories.map((category) => {
-          const used = teacherData[`used_${category.key}`] || 0; // 已使用名额
-          const remaining = teacherData[category.key] || 0; // 剩余名额
-          const total = used + remaining; // 动态计算总名额
+        let quotaInfo = [];
 
-          return {
-            label: category.label, // 类别名称
-            total, // 总名额 = 已使用 + 剩余
-            used, // 已使用名额
-            remaining // 剩余名额
-          };
-        });
+        // 新版：基于 logic 初始化后的 quota_settings 动态展示（按三级专业）
+        if (Array.isArray(teacherData.quota_settings) && teacherData.quota_settings.length > 0) {
+          quotaInfo = teacherData.quota_settings
+            .filter((item) => item.type === 'level3')
+            .map((item) => {
+              const total = Number(item.max_quota || 0);
+              const used = Number(item.used_quota || 0);
+              const remaining = Math.max(total - used, 0);
+              return {
+                key: item.code,
+                label: item.name || item.code,
+                total,
+                used,
+                remaining
+              };
+            });
+        } else {
+          // 兼容旧版字段，避免老数据无法展示
+          const legacyCategories = [
+            { label: '电子信息（专硕）', key: 'dzxxzs' },
+            { label: '控制科学与工程（学硕）', key: 'kongzhiX' },
+            { label: '电气工程（专硕）', key: 'dqgczs' },
+            { label: '电气工程（学硕）', key: 'dqgcxs' },
+            { label: '电子信息（联培）', key: 'dzxxlp' },
+            { label: '电气工程（联培）', key: 'dqgclp' },
+            { label: '电子信息(士兵计划)', key: 'dzxxsoldier' },
+            { label: '电子信息(非全日制)', key: 'dzxxpartTime' },
+            { label: '电气工程(士兵计划)', key: 'dqgcsoldier' },
+            { label: '电气工程(非全日制)', key: 'dqgcpartTime' }
+          ];
+
+          quotaInfo = legacyCategories.map((category) => {
+            const used = teacherData[`used_${category.key}`] || 0;
+            const remaining = teacherData[category.key] || 0;
+            return {
+              key: category.key,
+              label: category.label,
+              total: used + remaining,
+              used,
+              remaining
+            };
+          });
+        }
 
         // 更新数据
         this.setData({
