@@ -111,23 +111,57 @@ Page({
       return;
     }
 
-    Promise.all([
-      db.collection('Teacher').doc(teacherId).get(),
-      db.collection('Logic').limit(1000).get()
-    ])
-      .then(([teacherRes, logicRes]) => {
-        const teacherData = teacherRes.data || {};
-        const logicRows = logicRes.data || [];
+    db.collection('Teacher')
+      .doc(teacherId)
+      .get()
+      .then((response) => {
+        const teacherData = response.data;
 
         let quotaInfo = [];
 
-        // 新版：展示 quota_settings 的一级/二级/三级全部层级
+        // 新版：基于 logic 初始化后的 quota_settings 动态展示（按三级专业）
         if (Array.isArray(teacherData.quota_settings) && teacherData.quota_settings.length > 0) {
-          const typeText = {
-            level1: '一级',
-            level2: '二级',
-            level3: '三级'
-          };
+          quotaInfo = teacherData.quota_settings
+            .filter((item) => item.type === 'level3')
+            .map((item) => {
+              const total = Number(item.max_quota || 0);
+              const used = Number(item.used_quota || 0);
+              const remaining = Math.max(total - used, 0);
+              return {
+                key: item.code,
+                label: item.name || item.code,
+                total,
+                used,
+                remaining
+              };
+            });
+        } else {
+          // 兼容旧版字段，避免老数据无法展示
+          const legacyCategories = [
+            { label: '电子信息（专硕）', key: 'dzxxzs' },
+            { label: '控制科学与工程（学硕）', key: 'kongzhiX' },
+            { label: '电气工程（专硕）', key: 'dqgczs' },
+            { label: '电气工程（学硕）', key: 'dqgcxs' },
+            { label: '电子信息（联培）', key: 'dzxxlp' },
+            { label: '电气工程（联培）', key: 'dqgclp' },
+            { label: '电子信息(士兵计划)', key: 'dzxxsoldier' },
+            { label: '电子信息(非全日制)', key: 'dzxxpartTime' },
+            { label: '电气工程(士兵计划)', key: 'dqgcsoldier' },
+            { label: '电气工程(非全日制)', key: 'dqgcpartTime' }
+          ];
+
+          quotaInfo = legacyCategories.map((category) => {
+            const used = teacherData[`used_${category.key}`] || 0;
+            const remaining = teacherData[category.key] || 0;
+            return {
+              key: category.key,
+              label: category.label,
+              total: used + remaining,
+              used,
+              remaining
+            };
+          });
+        }
 
           const orderMap = { level1: 1, level2: 2, level3: 3 };
 
