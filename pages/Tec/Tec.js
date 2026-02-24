@@ -527,7 +527,10 @@ Page({
     let pendingChange = null;
 
     if (type !== undefined && type !== null && String(type) !== '') {
-      pendingChange = pendingList.find((item) => String(item.key) === String(type));
+      pendingChange = pendingList.find((item) => {
+        const itemType = item.key || item.type || item.code;
+        return itemType !== undefined && itemType !== null && String(itemType) === String(type);
+      });
     }
 
     if (!pendingChange && Number.isInteger(index) && pendingList[index]) {
@@ -540,7 +543,7 @@ Page({
       return;
     }
 
-    const resolvedType = pendingChange.key || type;
+    const resolvedType = pendingChange.key || pendingChange.type || pendingChange.code || type;
     if (resolvedType === undefined || resolvedType === null || String(resolvedType) === '') {
       wx.showToast({ title: '未找到名额类型，请刷新', icon: 'none' });
       return;
