@@ -7,6 +7,43 @@ exports.main = async (event, context) => {
     const { teacherId } = event;
     console.log(`获取待审批数据: teacherId = ${teacherId}`);
 
+    const timeoutDuration = 48 * 60 * 60 * 1000; // 48小时超时
+    const currentTimestamp = new Date().getTime();
+
+    const teacherRes = await db.collection('Teacher').doc(teacherId).get();
+    const teacher = teacherRes.data;
+
+    if (!teacher) {
+      return { success: true, pendingChanges: [] };
+    }
+
+    // 优先使用基于 Logic 初始化的 quota_settings 结构
+    if (Array.isArray(teacher.quota_settings) && teacher.quota_settings.length > 0) {
+      const pendingChanges = [];
+      const approvalTimestamp = teacher.approval_timestamp || 0;
+      const elapsedTime = approvalTimestamp ? currentTimestamp - approvalTimestamp : timeoutDuration + 1;
+      const remainingTimeMs = timeoutDuration - elapsedTime;
+
+      teacher.quota_settings
+        .filter((item) => item.type === 'level3' && Number(item.pending_quota || 0) > 0)
+        .forEach((item) => {
+          if (remainingTimeMs > 0) {
+            const remainingHours = Math.floor(remainingTimeMs / (60 * 60 * 1000));
+            const remainingMinutes = Math.floor((remainingTimeMs % (60 * 60 * 1000)) / (60 * 1000));
+            pendingChanges.push({
+              label: item.name || item.code,
+              key: item.code,
+              pendingValue: Number(item.pending_quota || 0),
+              teacherId,
+              remainingTime: `${remainingHours}小时${remainingMinutes}分钟`
+            });
+          }
+        });
+
+      return { success: true, pendingChanges };
+    }
+
+    // 兼容旧版硬编码字段
     const quotaCategories = [
       { label: '电子信息（专硕）', key: 'dzxxzs' },
       { label: '控制科学与工程（学硕）', key: 'kongzhiX' },
@@ -19,18 +56,8 @@ exports.main = async (event, context) => {
       { label: '电气工程(士兵计划)', key: 'dqgcsoldier' },
       { label: '电气工程(非全日制)', key: 'dqgcpartTime' }
     ];
-    // const timeoutDuration = 1 * 2 * 60 * 1000; // 2分钟超时
-    // const timeoutDuration = 24 * 60 * 60 * 1000;//24小时超时
-    const timeoutDuration = 48 * 60 * 60 * 1000;//48小时超时
-    // const timeoutDuration = 4 * 60 * 1000; // 4分钟超时
 
-    const currentTimestamp = new Date().getTime();
-
-    const teacherRes = await db.collection('Teacher').doc(teacherId).get();
-    const teacher = teacherRes.data;
-
-    if (!teacher || teacher.approval_status !== 'pending') {
-      console.log(`导师 ${teacherId} 无待审批数据或状态不为 pending`);
+    if (teacher.approval_status !== 'pending') {
       return { success: true, pendingChanges: [] };
     }
 
@@ -51,19 +78,16 @@ exports.main = async (event, context) => {
             label: category.label,
             key: category.key,
             pendingValue,
-            teacherId: teacherId,
+            teacherId,
             remainingTime: `${remainingHours}小时${remainingMinutes}分钟`
           });
-        } else {
-          console.log(`忽略超时名额: ${teacher.name}, ${category.key}, 剩余时间为 0`);
         }
       }
     }
 
-    console.log(`返回导师 ${teacherId} 的待审批数据:`, pendingChanges);
     return { success: true, pendingChanges };
   } catch (error) {
-    console.error("Error in getPendingChanges:", error);
+    console.error('Error in getPendingChanges:', error);
     return { success: false, error: error.message };
   }
 };
