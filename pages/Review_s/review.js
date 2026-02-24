@@ -250,26 +250,35 @@ Page({
 
       let teacherUpdate;
 
-      // 新版：优先按 quota_settings(level3_code) 扣减
+      // 新版：quota_settings 支持前缀层级名额（一级/二级/三级）
+      // 规则：优先使用三级名额，其次二级，最后一级
       if (Array.isArray(Tec.quota_settings) && Tec.quota_settings.length > 0 && level3Code) {
-        const quotaIndex = Tec.quota_settings.findIndex((item) =>
-          item.type === 'level3' && String(item.code) === String(level3Code)
-        );
+        const allCandidates = Tec.quota_settings
+          .map((item, index) => ({ item, index }))
+          .filter(({ item }) => ['level1', 'level2', 'level3'].includes(item.type))
+          .filter(({ item }) => String(level3Code).startsWith(String(item.code || '')));
 
-        if (quotaIndex < 0) {
-          wx.hideLoading();
-          this.setData({ acceptstate: false });
-          wx.showToast({
-            title: '未匹配到该学生专业对应指标',
-            icon: 'none'
+        const findFirstAvailable = (candidates) =>
+          candidates.find(({ item }) => {
+            const total = Number(item.max_quota || 0);
+            const used = Number(item.used_quota || 0);
+            return total - used > 0;
           });
-          return;
+
+        // 先三级、后二级、再一级
+        const level3Candidates = allCandidates.filter(({ item }) => item.type === 'level3');
+        const level2Candidates = allCandidates.filter(({ item }) => item.type === 'level2');
+        const level1Candidates = allCandidates.filter(({ item }) => item.type === 'level1');
+
+        let availableCandidate = findFirstAvailable(level3Candidates);
+        if (!availableCandidate) {
+          availableCandidate = findFirstAvailable(level2Candidates);
+        }
+        if (!availableCandidate) {
+          availableCandidate = findFirstAvailable(level1Candidates);
         }
 
-        const matchedQuota = Tec.quota_settings[quotaIndex];
-        const total = Number(matchedQuota.max_quota || 0);
-        const used = Number(matchedQuota.used_quota || 0);
-        if (total - used <= 0) {
+        if (!availableCandidate) {
           wx.hideLoading();
           this.setData({ acceptstate: false });
           wx.showToast({
@@ -278,6 +287,9 @@ Page({
           });
           return;
         }
+
+        const matchedQuota = availableCandidate.item;
+        const quotaIndex = availableCandidate.index;
 
         teacherUpdate = db.collection('Teacher').doc(Tec._id).update({
           data: {
@@ -333,10 +345,15 @@ Page({
       const teacherData = await db.collection('Teacher').doc(Tec_id).get();
       let quotaExhausted = false;
       if (Array.isArray(teacherData.data.quota_settings) && level3Code) {
-        const currentQuota = teacherData.data.quota_settings.find((item) =>
-          item.type === 'level3' && String(item.code) === String(level3Code)
+        const matchedCandidates = teacherData.data.quota_settings
+          .filter((item) =>
+            ['level1', 'level2', 'level3'].includes(item.type) &&
+            String(level3Code).startsWith(String(item.code || ''))
+          );
+
+        quotaExhausted = matchedCandidates.length > 0 && matchedCandidates.every((item) =>
+          Number(item.max_quota || 0) - Number(item.used_quota || 0) <= 0
         );
-        quotaExhausted = !!currentQuota && Number(currentQuota.max_quota || 0) - Number(currentQuota.used_quota || 0) <= 0;
       } else if (selectedField) {
         quotaExhausted = Number(teacherData.data[selectedField] || 0) <= 0;
       }

@@ -25,7 +25,7 @@ exports.main = async (event, context) => {
       const remainingTimeMs = timeoutDuration - elapsedTime;
 
       teacher.quota_settings
-        .filter((item) => item.type === 'level3' && Number(item.pending_quota || 0) > 0)
+        .filter((item) => ['level1','level2','level3'].includes(item.type) && Number(item.pending_quota || 0) > 0)
         .forEach((item) => {
           if (remainingTimeMs > 0) {
             const remainingHours = Math.floor(remainingTimeMs / (60 * 60 * 1000));
