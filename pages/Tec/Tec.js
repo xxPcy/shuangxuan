@@ -520,17 +520,29 @@ Page({
     const currentDataset = (e && e.currentTarget && e.currentTarget.dataset) || {};
     const targetDataset = (e && e.target && e.target.dataset) || {};
     const type = currentDataset.type || targetDataset.type;
+    const indexValue = currentDataset.index !== undefined ? currentDataset.index : targetDataset.index;
+    const index = Number(indexValue);
 
-    if (!type || !action) {
-      wx.showToast({ title: '参数异常，请重试', icon: 'none' });
+    const pendingList = Array.isArray(this.data.pendingChanges) ? this.data.pendingChanges : [];
+    let pendingChange = null;
+
+    if (type !== undefined && type !== null && String(type) !== '') {
+      pendingChange = pendingList.find((item) => String(item.key) === String(type));
+    }
+
+    if (!pendingChange && Number.isInteger(index) && pendingList[index]) {
+      pendingChange = pendingList[index];
+    }
+
+    if (!pendingChange || !action) {
+      console.warn('审批参数异常', { type, indexValue, pendingList });
+      wx.showToast({ title: '审批参数异常，请重试', icon: 'none' });
       return;
     }
 
-    const pendingList = Array.isArray(this.data.pendingChanges) ? this.data.pendingChanges : [];
-    const pendingChange = pendingList.find((item) => String(item.key) === String(type));
-
-    if (!pendingChange) {
-      wx.showToast({ title: '未找到相关数据', icon: 'none' });
+    const resolvedType = pendingChange.key || type;
+    if (resolvedType === undefined || resolvedType === null || String(resolvedType) === '') {
+      wx.showToast({ title: '未找到名额类型，请刷新', icon: 'none' });
       return;
     }
 
@@ -543,8 +555,8 @@ Page({
     }
 
     const category = {
-      key: type,
-      label: pendingChange.label || type
+      key: resolvedType,
+      label: pendingChange.label || resolvedType
     };
 
     wx.showModal({
@@ -567,7 +579,7 @@ Page({
 
           // 新版 quota_settings 审批逻辑
           if (Array.isArray(teacher.quota_settings) && teacher.quota_settings.length > 0) {
-            const quotaIndex = teacher.quota_settings.findIndex((item) => String(item.code) === String(type));
+            const quotaIndex = teacher.quota_settings.findIndex((item) => String(item.code) === String(resolvedType));
             if (quotaIndex < 0) {
               wx.showToast({ title: '未找到待审批名额项', icon: 'none' });
               return;
@@ -600,7 +612,7 @@ Page({
                 data: {
                   teacherName: teacher.name,
                   teacherId: teacher.Id,
-                  key: type,
+                  key: resolvedType,
                   label: category.label,
                   rejectedValue: currentPending,
                   reason: '主动拒绝',
@@ -611,7 +623,7 @@ Page({
             }
           } else {
             // 兼容旧版字段
-            const currentPending = teacher[`pending_${type}`] || 0;
+            const currentPending = teacher[`pending_${resolvedType}`] || 0;
             if (currentPending === 0) {
               wx.showToast({ title: '名额已被处理，请刷新', icon: 'none' });
               return;
@@ -620,8 +632,8 @@ Page({
             if (action === 'approve') {
               await db.collection('Teacher').doc(teacherId).update({
                 data: {
-                  [`${type}`]: _.inc(validValue),
-                  [`pending_${type}`]: 0,
+                  [`${resolvedType}`]: _.inc(validValue),
+                  [`pending_${resolvedType}`]: 0,
                 }
               });
               wx.showToast({ title: '审批成功', icon: 'success' });
@@ -630,7 +642,7 @@ Page({
                 name: 'rejectQuota',
                 data: {
                   teacherId,
-                  type,
+                  type: resolvedType,
                   validValue,
                   category
                 }

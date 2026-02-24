@@ -23,8 +23,8 @@
     <view class="quota-row">
       <text class="short-line"> <text class="bold">{{item.label}} </text> 名额变化：<text class="bold">{{item.pendingValue > 0 ? '+' : ''}}{{item.pendingValue}}</text></text>
       <text class="short-line">剩余时间：{{item.remainingTime}}</text>
-      <button data-type="{{item.key}}" bindtap="handleApprove" class="accept" wx:if="{{item.remainingTime !== '0小时0分钟'}}">确认</button>
-      <button data-type="{{item.key}}" bindtap="handleReject" class="reject" wx:if="{{item.remainingTime !== '0小时0分钟'}}">拒绝</button>
+      <button data-type="{{item.key}}" data-index="{{index}}" bindtap="handleApprove" class="accept" wx:if="{{item.remainingTime !== '0小时0分钟'}}">确认</button>
+      <button data-type="{{item.key}}" data-index="{{index}}" bindtap="handleReject" class="reject" wx:if="{{item.remainingTime !== '0小时0分钟'}}">拒绝</button>
     </view>
   </block>
   <view wx:if="{{pendingChanges.length === 0}}">
