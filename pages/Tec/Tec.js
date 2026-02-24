@@ -580,13 +580,13 @@ Page({
           const teacherRes = await db.collection('Teacher').doc(teacherId).get();
           const teacher = teacherRes.data || {};
 
-          // 新版 quota_settings 审批逻辑
-          if (Array.isArray(teacher.quota_settings) && teacher.quota_settings.length > 0) {
-            const quotaIndex = teacher.quota_settings.findIndex((item) => String(item.code) === String(resolvedType));
-            if (quotaIndex < 0) {
-              wx.showToast({ title: '未找到待审批名额项', icon: 'none' });
-              return;
-            }
+          const hasQuotaSettings = Array.isArray(teacher.quota_settings) && teacher.quota_settings.length > 0;
+          const quotaIndex = hasQuotaSettings
+            ? teacher.quota_settings.findIndex((item) => String(item.code) === String(resolvedType))
+            : -1;
+
+          // 新版 quota_settings 审批逻辑（只有匹配到 code 才走）
+          if (hasQuotaSettings && quotaIndex >= 0) {
 
             const currentPending = Number(teacher.quota_settings[quotaIndex].pending_quota || 0);
             if (currentPending <= 0) {
@@ -625,7 +625,7 @@ Page({
               wx.showToast({ title: '操作成功', icon: 'success' });
             }
           } else {
-            // 兼容旧版字段
+            // 兼容旧版字段，或 quota_settings 存在但本次是旧键值（如 dzxxzs）
             const currentPending = teacher[`pending_${resolvedType}`] || 0;
             if (currentPending === 0) {
               wx.showToast({ title: '名额已被处理，请刷新', icon: 'none' });
