@@ -17,73 +17,31 @@ exports.main = async (event, context) => {
       return { success: true, pendingChanges: [] };
     }
 
-    // 优先使用基于 Logic 初始化的 quota_settings 结构
-    if (Array.isArray(teacher.quota_settings) && teacher.quota_settings.length > 0) {
-      const pendingChanges = [];
-      const approvalTimestamp = teacher.approval_timestamp || 0;
-      const elapsedTime = approvalTimestamp ? currentTimestamp - approvalTimestamp : timeoutDuration + 1;
-      const remainingTimeMs = timeoutDuration - elapsedTime;
-
-      teacher.quota_settings
-        .filter((item) => ['level1','level2','level3'].includes(item.type) && Number(item.pending_quota || 0) > 0)
-        .forEach((item) => {
-          if (remainingTimeMs > 0) {
-            const remainingHours = Math.floor(remainingTimeMs / (60 * 60 * 1000));
-            const remainingMinutes = Math.floor((remainingTimeMs % (60 * 60 * 1000)) / (60 * 1000));
-            pendingChanges.push({
-              label: item.name || item.code,
-              key: item.code,
-              pendingValue: Number(item.pending_quota || 0),
-              teacherId,
-              remainingTime: `${remainingHours}小时${remainingMinutes}分钟`
-            });
-          }
-        });
-
-      return { success: true, pendingChanges };
-    }
-
-    // 兼容旧版硬编码字段
-    const quotaCategories = [
-      { label: '电子信息（专硕）', key: 'dzxxzs' },
-      { label: '控制科学与工程（学硕）', key: 'kongzhiX' },
-      { label: '电气工程（专硕）', key: 'dqgczs' },
-      { label: '电气工程（学硕）', key: 'dqgcxs' },
-      { label: '电子信息（联培）', key: 'dzxxlp' },
-      { label: '电气工程（联培）', key: 'dqgclp' },
-      { label: '电子信息(士兵计划)', key: 'dzxxsoldier' },
-      { label: '电子信息(非全日制)', key: 'dzxxpartTime' },
-      { label: '电气工程(士兵计划)', key: 'dqgcsoldier' },
-      { label: '电气工程(非全日制)', key: 'dqgcpartTime' }
-    ];
-
-    if (teacher.approval_status !== 'pending') {
+    // 仅支持基于专业代码(code)的 quota_settings 结构
+    if (!Array.isArray(teacher.quota_settings) || teacher.quota_settings.length === 0) {
       return { success: true, pendingChanges: [] };
     }
 
     const pendingChanges = [];
-    for (const category of quotaCategories) {
-      const pendingKey = `pending_${category.key}`;
-      const pendingValue = teacher[pendingKey] || 0;
-      const approvalTimestamp = teacher.approval_timestamp || 0;
+    const approvalTimestamp = teacher.approval_timestamp || 0;
+    const elapsedTime = approvalTimestamp ? currentTimestamp - approvalTimestamp : timeoutDuration + 1;
+    const remainingTimeMs = timeoutDuration - elapsedTime;
 
-      if (pendingValue > 0) {
-        const elapsedTime = approvalTimestamp ? currentTimestamp - approvalTimestamp : timeoutDuration + 1;
-        const remainingTimeMs = timeoutDuration - elapsedTime;
-
+    teacher.quota_settings
+      .filter((item) => ['level1', 'level2', 'level3'].includes(item.type) && Number(item.pending_quota || 0) > 0)
+      .forEach((item) => {
         if (remainingTimeMs > 0) {
           const remainingHours = Math.floor(remainingTimeMs / (60 * 60 * 1000));
           const remainingMinutes = Math.floor((remainingTimeMs % (60 * 60 * 1000)) / (60 * 1000));
           pendingChanges.push({
-            label: category.label,
-            key: category.key,
-            pendingValue,
+            label: item.name || item.code,
+            key: item.code,
+            pendingValue: Number(item.pending_quota || 0),
             teacherId,
             remainingTime: `${remainingHours}小时${remainingMinutes}分钟`
           });
         }
-      }
-    }
+      });
 
     return { success: true, pendingChanges };
   } catch (error) {

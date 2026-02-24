@@ -236,8 +236,17 @@ Page({
       }
   
   
-      const selectedField = latestStudent.selectedField;
       const level3Code = latestStudent.level3_code || latestStudent.specializedCode || '';
+
+      if (!level3Code) {
+        wx.hideLoading();
+        this.setData({ acceptstate: false });
+        wx.showToast({
+          title: '学生缺少专业代码，无法录取',
+          icon: 'none'
+        });
+        return;
+      }
 
       // **事务更新学生和导师信息**
       const studentUpdate = db.collection('Stu').doc(selectedStudent.studentId).update({
@@ -308,35 +317,13 @@ Page({
           },
         });
       } else {
-        // 兼容旧版字段
-        const legacyField = selectedField || null;
-        if (!legacyField || Tec[legacyField] <= 0) {
-          wx.hideLoading();
-          this.setData({ acceptstate: false });
-          wx.showToast({
-            title: '招生名额不足',
-            icon: 'none',
-          });
-          return;
-        }
-
-        teacherUpdate = db.collection('Teacher').doc(Tec._id).update({
-          data: {
-            prestudent: _.pull({
-              studentId: selectedStudent.studentId,
-            }),
-            [legacyField]: _.inc(-1),
-            [`used_${legacyField}`]: _.inc(1),
-            student: _.push({
-              studentId: selectedStudent.studentId,
-              specialized: selectedStudent.specialized,
-              studentName: selectedStudent.studentName,
-              phoneNumber: selectedStudent.phoneNumber,
-              Id: selectedStudent.Id,
-              categoryKey: legacyField,
-            }),
-          },
+        wx.hideLoading();
+        this.setData({ acceptstate: false });
+        wx.showToast({
+          title: '导师缺少code名额配置',
+          icon: 'none',
         });
+        return;
       }
   
       await Promise.all([studentUpdate, teacherUpdate]);
@@ -354,8 +341,6 @@ Page({
         quotaExhausted = matchedCandidates.length > 0 && matchedCandidates.every((item) =>
           Number(item.max_quota || 0) - Number(item.used_quota || 0) <= 0
         );
-      } else if (selectedField) {
-        quotaExhausted = Number(teacherData.data[selectedField] || 0) <= 0;
       }
 
       if (quotaExhausted) {

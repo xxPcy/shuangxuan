@@ -165,35 +165,6 @@ Page({
             ...item,
             label: logicNameMap[String(item.key)] || item.label
           }));
-        } else {
-          // 兼容旧版字段，避免老数据无法展示
-          const legacyCategories = [
-            { label: '电子信息（专硕）', key: 'dzxxzs' },
-            { label: '控制科学与工程（学硕）', key: 'kongzhiX' },
-            { label: '电气工程（专硕）', key: 'dqgczs' },
-            { label: '电气工程（学硕）', key: 'dqgcxs' },
-            { label: '电子信息（联培）', key: 'dzxxlp' },
-            { label: '电气工程（联培）', key: 'dqgclp' },
-            { label: '电子信息(士兵计划)', key: 'dzxxsoldier' },
-            { label: '电子信息(非全日制)', key: 'dzxxpartTime' },
-            { label: '电气工程(士兵计划)', key: 'dqgcsoldier' },
-            { label: '电气工程(非全日制)', key: 'dqgcpartTime' }
-          ];
-
-          quotaInfo = legacyCategories.map((category) => {
-            const used = teacherData[`used_${category.key}`] || 0;
-            const remaining = teacherData[category.key] || 0;
-            return {
-              key: category.key,
-              label: category.label,
-              level: '旧版',
-              levelOrder: 9,
-              total: used + remaining,
-              used,
-              remaining,
-              pending: Number(teacherData[`pending_${category.key}`] || 0)
-            };
-          });
         }
 
         this.setData({ quotaInfo });
@@ -528,8 +499,8 @@ Page({
 
     if (type !== undefined && type !== null && String(type) !== '') {
       pendingChange = pendingList.find((item) => {
-        const itemType = item.key || item.type || item.code;
-        return itemType !== undefined && itemType !== null && String(itemType) === String(type);
+        const itemCode = item.key || item.code;
+        return itemCode !== undefined && itemCode !== null && String(itemCode) === String(type);
       });
     }
 
@@ -543,16 +514,16 @@ Page({
       return;
     }
 
-    const resolvedType = pendingChange.key || pendingChange.type || pendingChange.code || type;
+    const resolvedType = pendingChange.key || pendingChange.code || type;
     if (resolvedType === undefined || resolvedType === null || String(resolvedType) === '') {
       wx.showToast({ title: '未找到名额类型，请刷新', icon: 'none' });
       return;
     }
 
     const { teacherId, pendingValue } = pendingChange;
-    const validValue = Number(pendingValue);
+    const numericPendingValue = Number(pendingValue);
 
-    if (isNaN(validValue) || validValue === 0) {
+    if (isNaN(numericPendingValue) || numericPendingValue === 0) {
       wx.showToast({ title: '名额值不合法', icon: 'none' });
       return;
     }
@@ -581,14 +552,21 @@ Page({
           const teacher = teacherRes.data || {};
 
           const hasQuotaSettings = Array.isArray(teacher.quota_settings) && teacher.quota_settings.length > 0;
-          const quotaIndex = hasQuotaSettings
-            ? teacher.quota_settings.findIndex((item) => String(item.code) === String(resolvedType))
-            : -1;
+          if (!hasQuotaSettings) {
+            wx.showToast({ title: '导师缺少专业代码名额配置', icon: 'none' });
+            return;
+          }
 
-          // 新版 quota_settings 审批逻辑（只有匹配到 code 才走）
-          if (hasQuotaSettings && quotaIndex >= 0) {
+          const quotaIndex = teacher.quota_settings.findIndex((item) => String(item.code) === String(resolvedType));
+          if (quotaIndex < 0) {
+            wx.showToast({ title: '未找到待审批名额项(按code)', icon: 'none' });
+            return;
+          }
 
-            const currentPending = Number(teacher.quota_settings[quotaIndex].pending_quota || 0);
+          // 仅按 quota_settings(code) 审批
+          {
+
+            const currentPending = Number(teacher.quota_settings[quotaIndex].pending_quota || pendingValue || 0);
             if (currentPending <= 0) {
               wx.showToast({ title: '名额已被处理，请刷新', icon: 'none' });
               return;
@@ -620,34 +598,6 @@ Page({
                   rejectedValue: currentPending,
                   reason: '主动拒绝',
                   timestamp: new Date()
-                }
-              });
-              wx.showToast({ title: '操作成功', icon: 'success' });
-            }
-          } else {
-            // 兼容旧版字段，或 quota_settings 存在但本次是旧键值（如 dzxxzs）
-            const currentPending = teacher[`pending_${resolvedType}`] || 0;
-            if (currentPending === 0) {
-              wx.showToast({ title: '名额已被处理，请刷新', icon: 'none' });
-              return;
-            }
-
-            if (action === 'approve') {
-              await db.collection('Teacher').doc(teacherId).update({
-                data: {
-                  [`${resolvedType}`]: _.inc(validValue),
-                  [`pending_${resolvedType}`]: 0,
-                }
-              });
-              wx.showToast({ title: '审批成功', icon: 'success' });
-            } else if (action === 'reject') {
-              await wx.cloud.callFunction({
-                name: 'rejectQuota',
-                data: {
-                  teacherId,
-                  type: resolvedType,
-                  validValue,
-                  category
                 }
               });
               wx.showToast({ title: '操作成功', icon: 'success' });
