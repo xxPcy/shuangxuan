@@ -508,9 +508,19 @@ Page({
 
 
 //防止两个设备接受名额
-  handleApproval(e) {
-    const dataset = (e && e.currentTarget && e.currentTarget.dataset) || {};
-    const { type, action } = dataset;
+  handleApprove(e) {
+    this.handleApprovalAction(e, 'approve');
+  },
+
+  handleReject(e) {
+    this.handleApprovalAction(e, 'reject');
+  },
+
+  handleApprovalAction(e, action) {
+    const currentDataset = (e && e.currentTarget && e.currentTarget.dataset) || {};
+    const targetDataset = (e && e.target && e.target.dataset) || {};
+    const type = currentDataset.type || targetDataset.type;
+
     if (!type || !action) {
       wx.showToast({ title: '参数异常，请重试', icon: 'none' });
       return;
