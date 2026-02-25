@@ -84,19 +84,35 @@ exports.main = async (event, context) => {
     
     console.log('从Teacher表查到的导师数量:', teacherRes.data.length);
 
-    // 4. 构建导师名额映射
-    const quotaMap = {};
-    teacherList.forEach(t => {
-      quotaMap[t.teacherId] = t.quota;
+    // 4. 合并导师信息和名额（按 code 前缀统计：已确认未使用 + 待审批）
+    const teachersWithQuota = teacherRes.data.map((teacher) => {
+      const quotaSettings = Array.isArray(teacher.quota_settings) ? teacher.quota_settings : [];
+      const matchedEntries = quotaSettings.filter((item) => {
+        if (!['level1', 'level2', 'level3'].includes(item.type)) return false;
+        const code = String(item.code || '');
+        return code && String(specializedCode).startsWith(code);
+      });
+
+      const confirmedRemainingQuota = matchedEntries.reduce((sum, item) => {
+        const maxQuota = Number(item.max_quota || 0);
+        const usedQuota = Number(item.used_quota || 0);
+        return sum + Math.max(maxQuota - usedQuota, 0);
+      }, 0);
+
+      const pendingQuota = matchedEntries.reduce((sum, item) => {
+        return sum + Number(item.pending_quota || 0);
+      }, 0);
+
+      return {
+        ...teacher,
+        matchedCode: specializedCode,
+        matchedConfirmedQuota: confirmedRemainingQuota,
+        matchedPendingQuota: pendingQuota,
+        matchedQuota: confirmedRemainingQuota + pendingQuota
+      };
     });
 
-    // 5. 合并导师信息和名额
-    const teachersWithQuota = teacherRes.data.map(teacher => ({
-      ...teacher,
-      matchedQuota: quotaMap[teacher.Id] || 0
-    }));
-
-    // 按名额从大到小排序
+    // 按可用总名额从大到小排序
     teachersWithQuota.sort((a, b) => b.matchedQuota - a.matchedQuota);
 
     return {
