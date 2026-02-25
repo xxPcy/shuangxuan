@@ -192,7 +192,7 @@
         <text>招生名额:</text>          
           <block wx:for="{{availableQuotas}}" wx:key="code">
           <view class="quota-row">
-          <text>{{item.name}}（{{item.code}}）：{{item.pending_quota}}</text>
+          <text>{{item.name}}（{{item.code}}）：{{item.total_available}}（含{{item.pending_quota}}个待审批）</text>
           </view>
         </block>
         <view wx:if="{{availableQuotas.length === 0}}" style="color: #999; padding: 10rpx 0;">
@@ -282,4 +282,3 @@
 </view>
 
 </scroll-view>
-

@@ -623,23 +623,36 @@ searchTeacher() {
       if (res.data && res.data.length > 0) {
         const teacher = res.data[0];
         
-        // 从 quota_settings 中获取所有专业，显示 pending_quota（没有的显示为 0）
+        // 从 quota_settings 中获取所有专业，显示：已确认未使用 + 待审批
         let availableQuotas = [];
         if (teacher.quota_settings && Array.isArray(teacher.quota_settings)) {
-          availableQuotas = teacher.quota_settings.map(item => ({
-            code: item.code,
-            name: item.name,
-            pending_quota: item.pending_quota || 0
-          }));
+          availableQuotas = teacher.quota_settings
+            .filter(item => ['level1', 'level2', 'level3'].includes(item.type))
+            .map(item => {
+              const maxQuota = Number(item.max_quota || 0);
+              const usedQuota = Number(item.used_quota || 0);
+              const pendingQuota = Number(item.pending_quota || 0);
+              const confirmedRemaining = Math.max(maxQuota - usedQuota, 0);
+              return {
+                code: item.code,
+                name: item.name,
+                type: item.type,
+                confirmed_remaining: confirmedRemaining,
+                pending_quota: pendingQuota,
+                total_available: confirmedRemaining + pendingQuota,
+              };
+            });
           
           // 按专业代码排序：先按代码长度（一级2位、二级4位、三级6位），再按代码字母顺序
           availableQuotas.sort((a, b) => {
             // 先按代码长度排序（短的在前，即一级->二级->三级）
-            if (a.code.length !== b.code.length) {
-              return a.code.length - b.code.length;
+            const aCode = String(a.code || '');
+            const bCode = String(b.code || '');
+            if (aCode.length !== bCode.length) {
+              return aCode.length - bCode.length;
             }
             // 同级别按代码字母顺序排序
-            return a.code.localeCompare(b.code);
+            return aCode.localeCompare(bCode);
           });
         }
         
@@ -2338,6 +2351,5 @@ onPullDownRefresh() {
 
 
 });
-
 
 
