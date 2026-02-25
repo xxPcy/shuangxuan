@@ -25,7 +25,7 @@
 <text class="note">点击导师头像了解详情</text>
 <view class="buttom"></view> 
 </view>
-  <view class="tec" wx:for="{{filteredTeachers}}" wx:key="id">
+  <view class="tec" wx:for="{{filteredTeachers}}" wx:key="_id">
     <view class="profile-container">
     <view class="profile">
       <navigator url="/pages/details/details?_id={{item._id}}&kongzhiX={{item.kongzhiX}}&dqgcxs={{item.dqgcxs}}&dzxxzs={{item.dzxxzs}}&kzgczs={{item.kzgczs}}&dzxxlp={{item.dzxxlp}}&kzgclp={{item.kzgclp}}&dqgczs={{item.dqgczs}}&dqgclp={{item.dqgclp}}">
