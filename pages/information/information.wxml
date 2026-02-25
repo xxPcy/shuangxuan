@@ -40,11 +40,12 @@
       邮箱：{{item.email}}
       </text>
        <view class="buttom"></view>  -->
-       <view class="info-container">
-      <view class="name">姓名：{{item.name}}</view>
-      <view class="research">研究方向：{{item.ezresearch}}</view>
-      <view class="email">邮箱：{{item.email}}</view>
-    </view>
+	       <view class="info-container">
+	      <view class="name">姓名：{{item.name}}</view>
+	      <view class="research">研究方向：{{item.ezresearch}}</view>
+	      <view class="email">邮箱：{{item.email}}</view>
+	      <view class="email" wx:if="{{item.matchedQuota >= 0}}">可用名额：{{item.matchedQuota}}（含待审批{{item.matchedPendingQuota || 0}}）</view>
+	    </view>
     
     </view>
     <view class="buttom"></view>
