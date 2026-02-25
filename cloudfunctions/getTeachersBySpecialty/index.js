@@ -15,7 +15,26 @@ exports.main = async (event, context) => {
     useQuota = false // false: 占用指标，只看当前有可用名额；true: 不占用指标，可看曾经分配过该专业链路名额的老师
   } = event;
 
-  if (!specializedCode) {
+  const rawSpecializedCode = String(specializedCode || '').trim();
+  const normalizeCode = (code) => {
+    const text = String(code || '').trim();
+    if (!text) return '';
+    if (!/^\d+$/.test(text)) return text;
+    const normalized = text.replace(/^0+/, '');
+    return normalized || '0';
+  };
+  const normalizedSpecializedCode = normalizeCode(rawSpecializedCode);
+  const codeMatches = (targetCode) => {
+    const rawTargetCode = String(targetCode || '').trim();
+    if (!rawTargetCode) return false;
+    if (rawSpecializedCode.startsWith(rawTargetCode)) return true;
+
+    const normalizedTargetCode = normalizeCode(rawTargetCode);
+    if (!normalizedSpecializedCode || !normalizedTargetCode) return false;
+    return normalizedSpecializedCode.startsWith(normalizedTargetCode);
+  };
+
+  if (!rawSpecializedCode) {
     return {
       success: false,
       message: '缺少三级专业代码',
@@ -43,7 +62,7 @@ exports.main = async (event, context) => {
 
     const collectFromLevel = (holders) => {
       Object.keys(holders).forEach((code) => {
-        if (!String(specializedCode).startsWith(String(code))) return;
+        if (!codeMatches(code)) return;
         const teacherList = holders[code] || [];
         teacherList.forEach((t) => {
           const teacherId = String(t.teacherId || '').trim();
@@ -86,7 +105,7 @@ exports.main = async (event, context) => {
       const matchedEntries = quotaSettings.filter((item) => {
         if (!['level1', 'level2', 'level3'].includes(item.type)) return false;
         const code = String(item.code || '');
-        return code && String(specializedCode).startsWith(code);
+        return codeMatches(code);
       });
 
       const confirmedRemainingQuota = matchedEntries.reduce((sum, item) => {
@@ -104,7 +123,7 @@ exports.main = async (event, context) => {
 
       return {
         ...teacher,
-        matchedCode: specializedCode,
+        matchedCode: rawSpecializedCode,
         matchedConfirmedQuota: confirmedRemainingQuota,
         matchedPendingQuota: pendingQuota,
         matchedQuota: confirmedRemainingQuota + pendingQuota,
