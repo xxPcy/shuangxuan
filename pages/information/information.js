@@ -160,8 +160,16 @@ viewAnnouncement(event) {
         }
       });
     } else {
-      // 没有专业代码，使用旧的加载方式
-      this.loadTeachersLegacy();
+      wx.hideLoading();
+      wx.showToast({
+        title: '缺少专业代码，请联系管理员',
+        icon: 'none'
+      });
+      this.setData({
+        teachers: [],
+        filteredTeachers: [],
+        hasMore: false
+      });
     }
   },
 
@@ -193,7 +201,12 @@ viewAnnouncement(event) {
     const { specializedCode, page, pageSize, useQuota } = this.data;
 
     if (!specializedCode) {
-      this.loadTeachersLegacy();
+      wx.hideLoading();
+      this.setData({
+        teachers: [],
+        filteredTeachers: [],
+        hasMore: false
+      });
       return;
     }
 
@@ -296,96 +309,21 @@ viewAnnouncement(event) {
         });
       }
     }).catch((err) => {
+      wx.hideLoading();
       console.error('本地 quota_settings 兜底加载失败:', err);
-      this.loadTeachersLegacy();
-    });
-  },
-
-
-  // 旧的加载导师方式（作为备用）
-  loadTeachersLegacy() {
-    wx.showLoading({
-      title: '数据载入中...',
-    });
-    const fieldMapping = {
-      '控制科学与工程': ['kongzhiX'],//有
-      '电气工程学硕': ['dqgcxs'],//有
-      '控制工程专硕': ['dzxxzs','dzxxlp'],//有
-      '人工智能专硕': ['dzxxzs','dzxxlp'],//有
-      '人工智能联培': ['dzxxlp'],//有
-      '控制工程联培': ['dzxxlp'],//有
-      '电气工程专硕': ['dqgczs','dqgclp'],//有
-      '电气工程联培': ['dqgclp'],//有
-      '人工智能士兵计划': ['dzxxsoldier'],
-      '控制工程士兵计划': ['dzxxsoldier'],
-      '电气工程士兵计划': ['dqgcsoldier'],
-      '人工智能非全日制': ['dzxxpartTime'],
-      '控制工程非全日制': ['dzxxpartTime'],
-      '电气工程非全日制': ['dqgcpartTime']
-    };
-    const that = this;
-    const recursiveLoad = (currentPage) => {
-      wx.cloud.callFunction({
-        name: 'getTeachers',
-        data: {
-          page: currentPage,
-          pageSize: that.data.pageSize,
-          fields: fieldMapping[that.data.category]
-        },
-        success: res => {
-          if (res.result?.success) {
-            const newTeachers = res.result.data;
-            const hasMore = newTeachers.length === that.data.pageSize;
-            console.log("newsteacher",newTeachers);
-            that.setData({
-              teachers: that.data.teachers.concat(newTeachers),
-              filteredTeachers: that.data.filteredTeachers.concat(newTeachers),
-              page: currentPage,  // 更新当前页码
-              hasMore
-            }, () => {
-              // 递归继续加载的条件
-              if (hasMore) {
-                recursiveLoad(currentPage + 1);
-                
-              } else {
-                wx.hideLoading();
-                if (currentPage > 1 && newTeachers.length === 0) {
-                  
-                  wx.showToast({
-                    title: '已加载全部数据',
-                    icon: 'none'
-                  });
-                }
-              }
-            });
-          } else {
-            wx.hideLoading();
-            console.error('数据格式异常:', res.result);
-          }
-        },
-        fail: err => {
-          wx.hideLoading();
-          console.error('加载失败:', err);
-          wx.showToast({
-            title: `加载失败: ${err.errMsg}`,
-            icon: 'none'
-          });
-        }
+      wx.showToast({
+        title: '加载导师失败，请稍后重试',
+        icon: 'none'
       });
-    };
-  
-    // 首次加载时清空旧数据
-    if (this.data.page === 1) {
       this.setData({
         teachers: [],
-        filteredTeachers: []
-      }, () => {
-        recursiveLoad(1);
+        filteredTeachers: [],
+        hasMore: false
       });
-    } else {
-      recursiveLoad(this.data.page);
-    }
+    });
   },
+
+
 
   // 根据输入框内容变化来搜索导师
   onSearchInput(event) {
