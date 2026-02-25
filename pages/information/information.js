@@ -14,6 +14,7 @@ Page({
     category:'',//学生报考类别
     stu_id:'',//学生的_id
     specializedCode: '', // 学生三级专业代码
+    useQuota: false, // 是否占用指标（false:占用，true:不占用）
   },
 
   // 加载公告
@@ -81,6 +82,7 @@ viewAnnouncement(event) {
       stu_id:stu_id,
       category:data.specialized,
       specializedCode: specializedCode,
+      useQuota: !!data.useQuota,
     }, () => {
       this.loadTeachers(); // 加载导师数据
     });
@@ -93,7 +95,7 @@ viewAnnouncement(event) {
     });
     
     const that = this;
-    const { specializedCode, page, pageSize } = this.data;
+    const { specializedCode, page, pageSize, useQuota } = this.data;
     
     console.log("loadTeachers - 三级专业代码:", specializedCode);
     
@@ -105,7 +107,8 @@ viewAnnouncement(event) {
         data: {
           specializedCode: specializedCode,
           page: page,
-          pageSize: pageSize
+          pageSize: pageSize,
+          useQuota: useQuota
         },
         success: res => {
           wx.hideLoading();
