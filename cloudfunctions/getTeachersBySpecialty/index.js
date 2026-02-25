@@ -1,5 +1,5 @@
 // 云函数入口文件
-// 根据学生三级专业代码从 QuotaHolders 中获取有名额的导师列表
+// 根据学生三级专业代码从 QuotaHolders 中获取导师列表（支持占用/不占用指标）
 
 const cloud = require('wx-server-sdk');
 
@@ -8,13 +8,12 @@ const db = cloud.database();
 const _ = db.command;
 
 exports.main = async (event, context) => {
-  const { 
-    specializedCode,  // 三级专业代码
-    page = 1, 
-    pageSize = 20 
+  const {
+    specializedCode, // 学生三级专业代码
+    page = 1,
+    pageSize = 20,
+    useQuota = false // false: 占用指标，只看当前有可用名额；true: 不占用指标，可看曾经分配过该专业链路名额的老师
   } = event;
-
-  console.log('收到参数:', { specializedCode, page, pageSize });
 
   if (!specializedCode) {
     return {
@@ -25,11 +24,8 @@ exports.main = async (event, context) => {
   }
 
   try {
-    // 1. 从 QuotaHolders 获取有名额的导师列表
     const quotaHoldersRes = await db.collection('QuotaHolders').doc('quotaholder').get();
-    
     if (!quotaHoldersRes.data) {
-      console.log('QuotaHolders 数据不存在');
       return {
         success: false,
         message: 'QuotaHolders 数据不存在',
@@ -38,54 +34,59 @@ exports.main = async (event, context) => {
     }
 
     const quotaHolders = quotaHoldersRes.data;
+    const level1Holders = quotaHolders.level1_holders || {};
+    const level2Holders = quotaHolders.level2_holders || {};
     const level3Holders = quotaHolders.level3_holders || {};
-    
-    console.log('level3_holders 中的所有专业代码:', Object.keys(level3Holders));
-    console.log('查找专业代码:', specializedCode);
-    
-    // 查找该三级专业代码下的导师
-    const teacherList = level3Holders[specializedCode] || [];
-    console.log('找到的导师列表:', teacherList);
-    
-    if (teacherList.length === 0) {
+
+    // 1) 按专业代码前缀聚合“曾经被分配过该专业链路”的导师候选池
+    const candidateMap = new Map(); // teacherId -> { teacherId, teacherName, historyQuota }
+
+    const collectFromLevel = (holders) => {
+      Object.keys(holders).forEach((code) => {
+        if (!String(specializedCode).startsWith(String(code))) return;
+        const teacherList = holders[code] || [];
+        teacherList.forEach((t) => {
+          const teacherId = String(t.teacherId || '').trim();
+          if (!teacherId) return;
+          if (!candidateMap.has(teacherId)) {
+            candidateMap.set(teacherId, {
+              teacherId,
+              teacherName: t.teacherName || '',
+              historyQuota: 0
+            });
+          }
+          const item = candidateMap.get(teacherId);
+          item.historyQuota += Number(t.quota || 0);
+        });
+      });
+    };
+
+    collectFromLevel(level1Holders);
+    collectFromLevel(level2Holders);
+    collectFromLevel(level3Holders);
+
+    const teacherIds = Array.from(candidateMap.keys());
+    if (teacherIds.length === 0) {
       return {
         success: true,
-        message: '该专业暂无有名额的导师',
+        message: '该专业暂无导师记录',
         data: [],
         total: 0,
         hasMore: false
       };
     }
 
-    // 提取导师ID列表
-    const teacherIds = teacherList.map(t => t.teacherId);
-    console.log('导师ID列表:', teacherIds);
-
-    // 2. 分页
-    const skip = (page - 1) * pageSize;
-    const paginatedIds = teacherIds.slice(skip, skip + pageSize);
-    
-    if (paginatedIds.length === 0) {
-      return {
-        success: true,
-        data: [],
-        total: teacherIds.length,
-        hasMore: false
-      };
+    // 2) 查询导师详细信息（分批）
+    const batchSize = 100;
+    let allTeachers = [];
+    for (let i = 0; i < teacherIds.length; i += batchSize) {
+      const batch = teacherIds.slice(i, i + batchSize);
+      const teacherRes = await db.collection('Teacher').where({ Id: _.in(batch) }).get();
+      allTeachers = allTeachers.concat(teacherRes.data || []);
     }
 
-    // 3. 查询导师详细信息
-    console.log('查询导师ID:', paginatedIds);
-    const teacherRes = await db.collection('Teacher')
-      .where({
-        Id: _.in(paginatedIds)
-      })
-      .get();
-    
-    console.log('从Teacher表查到的导师数量:', teacherRes.data.length);
-
-    // 4. 合并导师信息和名额（按 code 前缀统计：已确认未使用 + 待审批）
-    const teachersWithQuota = teacherRes.data.map((teacher) => {
+    // 3) 计算当前可用名额（confirmedRemaining + pending）
+    let teachersWithQuota = allTeachers.map((teacher) => {
       const quotaSettings = Array.isArray(teacher.quota_settings) ? teacher.quota_settings : [];
       const matchedEntries = quotaSettings.filter((item) => {
         if (!['level1', 'level2', 'level3'].includes(item.type)) return false;
@@ -103,27 +104,45 @@ exports.main = async (event, context) => {
         return sum + Number(item.pending_quota || 0);
       }, 0);
 
+      const history = candidateMap.get(String(teacher.Id || '').trim());
+
       return {
         ...teacher,
         matchedCode: specializedCode,
         matchedConfirmedQuota: confirmedRemainingQuota,
         matchedPendingQuota: pendingQuota,
-        matchedQuota: confirmedRemainingQuota + pendingQuota
+        matchedQuota: confirmedRemainingQuota + pendingQuota,
+        historyQuota: history ? history.historyQuota : 0
       };
     });
 
-    // 按可用总名额从大到小排序
-    teachersWithQuota.sort((a, b) => b.matchedQuota - a.matchedQuota);
+    // 占用指标学生：只看当前可用名额 > 0
+    // 不占用指标学生(useQuota=true)：看曾经被分配过该专业链路名额的所有导师（可含0名额）
+    if (!useQuota) {
+      teachersWithQuota = teachersWithQuota.filter((t) => Number(t.matchedQuota || 0) > 0);
+    }
+
+    teachersWithQuota.sort((a, b) => {
+      if (Number(b.matchedQuota || 0) !== Number(a.matchedQuota || 0)) {
+        return Number(b.matchedQuota || 0) - Number(a.matchedQuota || 0);
+      }
+      return String(a.name || '').localeCompare(String(b.name || ''));
+    });
+
+    // 4) 分页
+    const total = teachersWithQuota.length;
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    const pagedData = teachersWithQuota.slice(start, end);
 
     return {
       success: true,
-      data: teachersWithQuota,
-      total: teacherIds.length,
-      hasMore: (skip + pageSize) < teacherIds.length,
-      page: page,
-      pageSize: pageSize
+      data: pagedData,
+      total,
+      hasMore: end < total,
+      page,
+      pageSize
     };
-
   } catch (err) {
     console.error('获取导师列表失败:', err);
     return {
