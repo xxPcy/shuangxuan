@@ -231,9 +231,9 @@
 
       <view class="quota-row">
         <text>{{item.name}}（{{item.code}}）</text>
-        <text>未确认: {{item.pending_quota}} | 已确认: {{item.used_quota}} | 可新增(被退回): {{item.rejected_quota}}</text>
+        <text>未确认: {{item.pending_quota}} | 已确认未使用: {{item.confirmed_remaining}} | 已使用: {{item.used_quota}} | 可新增(被退回): {{item.rejected_quota}}</text>
         <text wx:if="{{item.pendingChange > 0}}">已新增: +{{item.pendingChange}}</text>
-        <text wx:if="{{item.subtractFromPending > 0 || item.subtractFromUsed > 0}}">已减少: {{item.subtractFromPending > 0 ? '未确认-' + item.subtractFromPending : ''}}{{item.subtractFromPending > 0 && item.subtractFromUsed > 0 ? ', ' : ''}}{{item.subtractFromUsed > 0 ? '已确认-' + item.subtractFromUsed : ''}}</text>
+        <text wx:if="{{item.subtractFromPending > 0 || item.subtractFromConfirmed > 0}}">已减少: {{item.subtractFromPending > 0 ? '未确认-' + item.subtractFromPending : ''}}{{item.subtractFromPending > 0 && item.subtractFromConfirmed > 0 ? ', ' : ''}}{{item.subtractFromConfirmed > 0 ? '已确认未使用-' + item.subtractFromConfirmed : ''}}</text>
         <button data-code="{{item.code}}" data-action="add" bindtap="modifyQuota" class="add">加一</button>
         <button data-code="{{item.code}}" data-action="subtract" bindtap="modifyQuota" class="reduce">减一</button>
       </view>
