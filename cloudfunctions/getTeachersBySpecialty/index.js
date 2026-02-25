@@ -65,23 +65,18 @@ exports.main = async (event, context) => {
     collectFromLevel(level2Holders);
     collectFromLevel(level3Holders);
 
-    const teacherIds = Array.from(candidateMap.keys());
-    if (teacherIds.length === 0) {
-      return {
-        success: true,
-        message: '该专业暂无导师记录',
-        data: [],
-        total: 0,
-        hasMore: false
-      };
-    }
+    const historyTeacherIdSet = new Set(Array.from(candidateMap.keys()));
 
-    // 2) 查询导师详细信息（分批）
+    // 2) 查询所有导师（避免 QuotaHolders 未同步导致漏显示）
+    const totalTeachersRes = await db.collection('Teacher').count();
+    const totalTeachers = totalTeachersRes.total || 0;
     const batchSize = 100;
     let allTeachers = [];
-    for (let i = 0; i < teacherIds.length; i += batchSize) {
-      const batch = teacherIds.slice(i, i + batchSize);
-      const teacherRes = await db.collection('Teacher').where({ Id: _.in(batch) }).get();
+    for (let i = 0; i < totalTeachers; i += batchSize) {
+      const teacherRes = await db.collection('Teacher')
+        .skip(i)
+        .limit(batchSize)
+        .get();
       allTeachers = allTeachers.concat(teacherRes.data || []);
     }
 
@@ -104,7 +99,8 @@ exports.main = async (event, context) => {
         return sum + Number(item.pending_quota || 0);
       }, 0);
 
-      const history = candidateMap.get(String(teacher.Id || '').trim());
+      const teacherId = String(teacher.Id || '').trim();
+      const history = candidateMap.get(teacherId);
 
       return {
         ...teacher,
@@ -120,6 +116,11 @@ exports.main = async (event, context) => {
     // 不占用指标学生(useQuota=true)：看曾经被分配过该专业链路名额的所有导师（可含0名额）
     if (!useQuota) {
       teachersWithQuota = teachersWithQuota.filter((t) => Number(t.matchedQuota || 0) > 0);
+    } else {
+      teachersWithQuota = teachersWithQuota.filter((t) => {
+        const teacherId = String(t.Id || '').trim();
+        return historyTeacherIdSet.has(teacherId) || Number(t.matchedQuota || 0) > 0;
+      });
     }
 
     teachersWithQuota.sort((a, b) => {
