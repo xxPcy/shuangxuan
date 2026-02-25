@@ -589,6 +589,29 @@ Page({
                 }
               });
 
+              // 退回到总指标池（TotalQuota 的 pending_approval）
+              const code = String(resolvedType || '');
+              let levelKey = 'level3_quota';
+              if (code.length <= 2) {
+                levelKey = 'level1_quota';
+              } else if (code.length <= 4) {
+                levelKey = 'level2_quota';
+              }
+
+              const totalQuotaRes = await db.collection('TotalQuota').doc('totalquota').get();
+              const totalQuotaData = totalQuotaRes.data || {};
+              const levelQuotaMap = { ...(totalQuotaData[levelKey] || {}) };
+              const currentCodeQuota = levelQuotaMap[code] || { code, name: category.label || code, pending_approval: 0 };
+              currentCodeQuota.pending_approval = Number(currentCodeQuota.pending_approval || 0) + currentPending;
+              levelQuotaMap[code] = currentCodeQuota;
+
+              await db.collection('TotalQuota').doc('totalquota').update({
+                data: {
+                  [levelKey]: levelQuotaMap,
+                  last_updated: new Date().getTime()
+                }
+              });
+
               await db.collection('RejectedQuota').add({
                 data: {
                   teacherName: teacher.name,
