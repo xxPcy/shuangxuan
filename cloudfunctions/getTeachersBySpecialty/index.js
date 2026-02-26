@@ -16,22 +16,10 @@ exports.main = async (event, context) => {
   } = event;
 
   const rawSpecializedCode = String(specializedCode || '').trim();
-  const normalizeCode = (code) => {
-    const text = String(code || '').trim();
-    if (!text) return '';
-    if (!/^\d+$/.test(text)) return text;
-    const normalized = text.replace(/^0+/, '');
-    return normalized || '0';
-  };
-  const normalizedSpecializedCode = normalizeCode(rawSpecializedCode);
   const codeMatches = (targetCode) => {
     const rawTargetCode = String(targetCode || '').trim();
     if (!rawTargetCode) return false;
-    if (rawSpecializedCode.startsWith(rawTargetCode)) return true;
-
-    const normalizedTargetCode = normalizeCode(rawTargetCode);
-    if (!normalizedSpecializedCode || !normalizedTargetCode) return false;
-    return normalizedSpecializedCode.startsWith(normalizedTargetCode);
+    return rawSpecializedCode.startsWith(rawTargetCode);
   };
 
   if (!rawSpecializedCode) {

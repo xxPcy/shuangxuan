@@ -114,12 +114,17 @@ viewAnnouncement(event) {
           wx.hideLoading();
           console.log("getTeachersBySpecialty 返回结果:", res.result);
           if (res.result?.success) {
-            const newTeachers = res.result.data;
-            const hasMore = res.result.hasMore;
+            const newTeachers = Array.isArray(res.result.data) ? res.result.data : [];
+            const hasMore = !!res.result.hasMore;
+            const totalFromCloud = Number(res.result.total || 0);
             console.log("根据专业代码获取的导师列表:", newTeachers);
-            
-            if (page === 1 && (!Array.isArray(newTeachers) || newTeachers.length === 0)) {
-              // 防止云函数未更新/旧逻辑导致空结果，回退本地 quota_settings 计算
+
+            const cloudResultSuspicious = page === 1 && (
+              newTeachers.length === 0 ||
+              (totalFromCloud > newTeachers.length && !hasMore)
+            );
+            if (cloudResultSuspicious) {
+              // 云端返回数量与 data 不一致时，改为本地 quota_settings 兜底计算
               that.loadTeachersByQuotaSettingsDirect();
               return;
             }
@@ -172,27 +177,11 @@ viewAnnouncement(event) {
       });
     }
   },
-
-
-  normalizeCode(code) {
-    const text = String(code || '').trim();
-    if (!text) return '';
-    const digits = text.replace(/\.0+$/, '');
-    if (!/^\d+$/.test(digits)) return text;
-    const normalized = digits.replace(/^0+/, '');
-    return normalized || '0';
-  },
-
   codeMatches(sourceCode, targetCode) {
     const sourceRaw = String(sourceCode || '').trim();
     const targetRaw = String(targetCode || '').trim();
     if (!sourceRaw || !targetRaw) return false;
-    if (sourceRaw.startsWith(targetRaw)) return true;
-
-    const sourceNormalized = this.normalizeCode(sourceRaw);
-    const targetNormalized = this.normalizeCode(targetRaw);
-    if (!sourceNormalized || !targetNormalized) return false;
-    return sourceNormalized.startsWith(targetNormalized);
+    return sourceRaw.startsWith(targetRaw);
   },
 
   // 本地兜底：直接读取 Teacher.quota_settings 计算可见导师，避免云函数未同步导致漏显示
