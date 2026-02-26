@@ -260,7 +260,7 @@ viewAnnouncement(event) {
           matchedCode: specializedCode,
           matchedConfirmedQuota: confirmedRemaining,
           matchedPendingQuota: pendingQuota,
-          matchedQuota: confirmedRemaining + pendingQuota
+          matchedQuota: confirmedRemaining
         };
       });
 

@@ -114,7 +114,7 @@ exports.main = async (event, context) => {
         matchedCode: rawSpecializedCode,
         matchedConfirmedQuota: confirmedRemainingQuota,
         matchedPendingQuota: pendingQuota,
-        matchedQuota: confirmedRemainingQuota + pendingQuota,
+        matchedQuota: confirmedRemainingQuota,
         historyQuota: history ? history.historyQuota : 0
       };
     });
