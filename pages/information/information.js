@@ -14,6 +14,7 @@ Page({
     category:'',//学生报考类别
     stu_id:'',//学生的_id
     specializedCode: '', // 学生三级专业代码
+    useQuota: false, // 是否占用指标（false:占用，true:不占用）
   },
 
   // 加载公告
@@ -81,6 +82,7 @@ viewAnnouncement(event) {
       stu_id:stu_id,
       category:data.specialized,
       specializedCode: specializedCode,
+      useQuota: !!data.useQuota,
     }, () => {
       this.loadTeachers(); // 加载导师数据
     });
@@ -93,7 +95,7 @@ viewAnnouncement(event) {
     });
     
     const that = this;
-    const { specializedCode, page, pageSize } = this.data;
+    const { specializedCode, page, pageSize, useQuota } = this.data;
     
     console.log("loadTeachers - 三级专业代码:", specializedCode);
     
@@ -105,16 +107,28 @@ viewAnnouncement(event) {
         data: {
           specializedCode: specializedCode,
           page: page,
-          pageSize: pageSize
+          pageSize: pageSize,
+          useQuota: useQuota
         },
         success: res => {
           wx.hideLoading();
           console.log("getTeachersBySpecialty 返回结果:", res.result);
           if (res.result?.success) {
-            const newTeachers = res.result.data;
-            const hasMore = res.result.hasMore;
+            const newTeachers = Array.isArray(res.result.data) ? res.result.data : [];
+            const hasMore = !!res.result.hasMore;
+            const totalFromCloud = Number(res.result.total || 0);
             console.log("根据专业代码获取的导师列表:", newTeachers);
-            
+
+            const cloudResultSuspicious = page === 1 && (
+              newTeachers.length === 0 ||
+              (totalFromCloud > newTeachers.length && !hasMore)
+            );
+            if (cloudResultSuspicious) {
+              // 云端返回数量与 data 不一致时，改为本地 quota_settings 兜底计算
+              that.loadTeachersByQuotaSettingsDirect();
+              return;
+            }
+
             if (page === 1) {
               // 首次加载
               that.setData({
@@ -139,107 +153,166 @@ viewAnnouncement(event) {
             }
           } else {
             console.error('获取导师数据失败:', res.result?.message);
-            // 如果新方法失败，回退到旧方法
-            that.loadTeachersLegacy();
+            // 云函数返回异常时，回退到本地 quota_settings 计算，避免漏导师
+            that.loadTeachersByQuotaSettingsDirect();
           }
         },
         fail: err => {
           wx.hideLoading();
           console.error('云函数调用失败:', err);
-          // 回退到旧方法
-          that.loadTeachersLegacy();
+          // 云函数调用失败时，回退到本地 quota_settings 计算，避免漏导师
+          that.loadTeachersByQuotaSettingsDirect();
         }
       });
     } else {
-      // 没有专业代码，使用旧的加载方式
-      this.loadTeachersLegacy();
-    }
-  },
-
-  // 旧的加载导师方式（作为备用）
-  loadTeachersLegacy() {
-    wx.showLoading({
-      title: '数据载入中...',
-    });
-    const fieldMapping = {
-      '控制科学与工程': ['kongzhiX'],//有
-      '电气工程学硕': ['dqgcxs'],//有
-      '控制工程专硕': ['dzxxzs','dzxxlp'],//有
-      '人工智能专硕': ['dzxxzs','dzxxlp'],//有
-      '人工智能联培': ['dzxxlp'],//有
-      '控制工程联培': ['dzxxlp'],//有
-      '电气工程专硕': ['dqgczs','dqgclp'],//有
-      '电气工程联培': ['dqgclp'],//有
-      '人工智能士兵计划': ['dzxxsoldier'],
-      '控制工程士兵计划': ['dzxxsoldier'],
-      '电气工程士兵计划': ['dqgcsoldier'],
-      '人工智能非全日制': ['dzxxpartTime'],
-      '控制工程非全日制': ['dzxxpartTime'],
-      '电气工程非全日制': ['dqgcpartTime']
-    };
-    const that = this;
-    const recursiveLoad = (currentPage) => {
-      wx.cloud.callFunction({
-        name: 'getTeachers',
-        data: {
-          page: currentPage,
-          pageSize: that.data.pageSize,
-          fields: fieldMapping[that.data.category]
-        },
-        success: res => {
-          if (res.result?.success) {
-            const newTeachers = res.result.data;
-            const hasMore = newTeachers.length === that.data.pageSize;
-            console.log("newsteacher",newTeachers);
-            that.setData({
-              teachers: that.data.teachers.concat(newTeachers),
-              filteredTeachers: that.data.filteredTeachers.concat(newTeachers),
-              page: currentPage,  // 更新当前页码
-              hasMore
-            }, () => {
-              // 递归继续加载的条件
-              if (hasMore) {
-                recursiveLoad(currentPage + 1);
-                
-              } else {
-                wx.hideLoading();
-                if (currentPage > 1 && newTeachers.length === 0) {
-                  
-                  wx.showToast({
-                    title: '已加载全部数据',
-                    icon: 'none'
-                  });
-                }
-              }
-            });
-          } else {
-            wx.hideLoading();
-            console.error('数据格式异常:', res.result);
-          }
-        },
-        fail: err => {
-          wx.hideLoading();
-          console.error('加载失败:', err);
-          wx.showToast({
-            title: `加载失败: ${err.errMsg}`,
-            icon: 'none'
-          });
-        }
+      wx.hideLoading();
+      wx.showToast({
+        title: '缺少专业代码，请联系管理员',
+        icon: 'none'
       });
-    };
-  
-    // 首次加载时清空旧数据
-    if (this.data.page === 1) {
       this.setData({
         teachers: [],
-        filteredTeachers: []
-      }, () => {
-        recursiveLoad(1);
+        filteredTeachers: [],
+        hasMore: false
       });
-    } else {
-      recursiveLoad(this.data.page);
     }
   },
+  codeMatches(sourceCode, targetCode) {
+    const sourceRaw = String(sourceCode || '').trim();
+    const targetRaw = String(targetCode || '').trim();
+    if (!sourceRaw || !targetRaw) return false;
+    return sourceRaw.startsWith(targetRaw);
+  },
+
+  // 本地兜底：直接读取 Teacher.quota_settings 计算可见导师，避免云函数未同步导致漏显示
+  loadTeachersByQuotaSettingsDirect() {
+    const db = wx.cloud.database();
+    const { specializedCode, page, pageSize, useQuota } = this.data;
+
+    if (!specializedCode) {
+      wx.hideLoading();
+      this.setData({
+        teachers: [],
+        filteredTeachers: [],
+        hasMore: false
+      });
+      return;
+    }
+
+    const buildHistoryTeacherSet = () => {
+      if (!useQuota) return Promise.resolve(new Set());
+      return db.collection('QuotaHolders').doc('quotaholder').get()
+        .then((res) => {
+          const doc = res.data || {};
+          const holders = [doc.level1_holders || {}, doc.level2_holders || {}, doc.level3_holders || {}];
+          const set = new Set();
+          holders.forEach((holderMap) => {
+            Object.keys(holderMap).forEach((code) => {
+              if (!this.codeMatches(specializedCode, code)) return;
+              (holderMap[code] || []).forEach((item) => {
+                const teacherId = String(item.teacherId || '').trim();
+                if (teacherId) set.add(teacherId);
+              });
+            });
+          });
+          return set;
+        })
+        .catch(() => new Set());
+    };
+
+    Promise.all([
+      db.collection('Teacher').count(),
+      buildHistoryTeacherSet()
+    ]).then(([countRes, historyTeacherIdSet]) => {
+      const totalTeachers = countRes.total || 0;
+      const batchSize = 100;
+      const tasks = [];
+      for (let i = 0; i < totalTeachers; i += batchSize) {
+        tasks.push(
+          db.collection('Teacher').skip(i).limit(batchSize).get()
+            .then((res) => res.data || [])
+        );
+      }
+      return Promise.all(tasks).then((chunks) => ({
+        allTeachers: chunks.flat(),
+        historyTeacherIdSet
+      }));
+    }).then(({ allTeachers, historyTeacherIdSet }) => {
+      let teachersWithQuota = allTeachers.map((teacher) => {
+        const quotaSettings = Array.isArray(teacher.quota_settings) ? teacher.quota_settings : [];
+        const matchedEntries = quotaSettings.filter((item) => {
+          if (!['level1', 'level2', 'level3'].includes(item.type)) return false;
+          return this.codeMatches(specializedCode, item.code);
+        });
+
+        const confirmedRemaining = matchedEntries.reduce((sum, item) => {
+          const maxQuota = Number(item.max_quota || 0);
+          const usedQuota = Number(item.used_quota || 0);
+          return sum + Math.max(maxQuota - usedQuota, 0);
+        }, 0);
+
+        const pendingQuota = matchedEntries.reduce((sum, item) => {
+          return sum + Number(item.pending_quota || 0);
+        }, 0);
+
+        return {
+          ...teacher,
+          matchedCode: specializedCode,
+          matchedConfirmedQuota: confirmedRemaining,
+          matchedPendingQuota: pendingQuota,
+          matchedQuota: confirmedRemaining + pendingQuota
+        };
+      });
+
+      if (!useQuota) {
+        teachersWithQuota = teachersWithQuota.filter((item) => Number(item.matchedQuota || 0) > 0);
+      } else {
+        teachersWithQuota = teachersWithQuota.filter((item) => {
+          const teacherId = String(item.Id || '').trim();
+          return historyTeacherIdSet.has(teacherId) || Number(item.matchedQuota || 0) > 0;
+        });
+      }
+
+      teachersWithQuota.sort((a, b) => {
+        if (Number(b.matchedQuota || 0) !== Number(a.matchedQuota || 0)) {
+          return Number(b.matchedQuota || 0) - Number(a.matchedQuota || 0);
+        }
+        return String(a.name || '').localeCompare(String(b.name || ''));
+      });
+
+      const start = (page - 1) * pageSize;
+      const end = start + pageSize;
+      const pagedData = teachersWithQuota.slice(start, end);
+
+      if (page === 1) {
+        this.setData({
+          teachers: pagedData,
+          filteredTeachers: pagedData,
+          hasMore: end < teachersWithQuota.length
+        });
+      } else {
+        this.setData({
+          teachers: this.data.teachers.concat(pagedData),
+          filteredTeachers: this.data.filteredTeachers.concat(pagedData),
+          hasMore: end < teachersWithQuota.length
+        });
+      }
+    }).catch((err) => {
+      wx.hideLoading();
+      console.error('本地 quota_settings 兜底加载失败:', err);
+      wx.showToast({
+        title: '加载导师失败，请稍后重试',
+        icon: 'none'
+      });
+      this.setData({
+        teachers: [],
+        filteredTeachers: [],
+        hasMore: false
+      });
+    });
+  },
+
+
 
   // 根据输入框内容变化来搜索导师
   onSearchInput(event) {
