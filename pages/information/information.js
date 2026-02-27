@@ -14,7 +14,7 @@ Page({
     category:'',//学生报考类别
     stu_id:'',//学生的_id
     specializedCode: '', // 学生三级专业代码
-    useQuota: false, // 是否占用指标（false:占用，true:不占用）
+    useQuota: false, // 是否占用指标（true:占用，false:不占用）
   },
 
   // 加载公告
@@ -240,36 +240,39 @@ viewAnnouncement(event) {
     }).then(({ allTeachers, historyTeacherIdSet }) => {
       let teachersWithQuota = allTeachers.map((teacher) => {
         const quotaSettings = Array.isArray(teacher.quota_settings) ? teacher.quota_settings : [];
-        const matchedEntries = quotaSettings.filter((item) => {
-          if (!['level1', 'level2', 'level3'].includes(item.type)) return false;
-          return this.codeMatches(specializedCode, item.code);
-        });
 
-        const confirmedRemaining = matchedEntries.reduce((sum, item) => {
+        const approvedByCode = new Map();
+        quotaSettings.forEach((item) => {
+          if (!['level1', 'level2', 'level3'].includes(item.type)) return;
+          const code = String(item.code || '').trim();
+          if (!this.codeMatches(specializedCode, code)) return;
           const maxQuota = Number(item.max_quota || 0);
           const usedQuota = Number(item.used_quota || 0);
-          return sum + Math.max(maxQuota - usedQuota, 0);
-        }, 0);
+          const remaining = Math.max(maxQuota - usedQuota, 0);
+          approvedByCode.set(code, (approvedByCode.get(code) || 0) + remaining);
+        });
 
-        const pendingQuota = matchedEntries.reduce((sum, item) => {
-          return sum + Number(item.pending_quota || 0);
-        }, 0);
+        const level3Code = specializedCode.length >= 6 ? specializedCode.slice(0, 6) : '';
+        const level2Code = specializedCode.length >= 4 ? specializedCode.slice(0, 4) : '';
+        const level1Code = specializedCode.length >= 2 ? specializedCode.slice(0, 2) : '';
+        const firstAvailableCode = [level3Code, level2Code, level1Code].find((code) => code && Number(approvedByCode.get(code) || 0) > 0) || '';
+        const matchedApprovedQuota = firstAvailableCode ? Number(approvedByCode.get(firstAvailableCode) || 0) : 0;
 
         return {
           ...teacher,
-          matchedCode: specializedCode,
-          matchedConfirmedQuota: confirmedRemaining,
-          matchedPendingQuota: pendingQuota,
-          matchedQuota: confirmedRemaining
+          matchedCode: firstAvailableCode || specializedCode,
+          matchedConfirmedQuota: matchedApprovedQuota,
+          matchedPendingQuota: 0,
+          matchedQuota: matchedApprovedQuota
         };
       });
 
-      if (!useQuota) {
+      if (useQuota) {
         teachersWithQuota = teachersWithQuota.filter((item) => Number(item.matchedQuota || 0) > 0);
       } else {
         teachersWithQuota = teachersWithQuota.filter((item) => {
           const teacherId = String(item.Id || '').trim();
-          return historyTeacherIdSet.has(teacherId) || Number(item.matchedQuota || 0) > 0;
+          return historyTeacherIdSet.has(teacherId);
         });
       }
 
