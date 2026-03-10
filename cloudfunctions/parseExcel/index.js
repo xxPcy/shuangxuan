@@ -586,7 +586,136 @@ exports.main = async (event, context) => {
       }
     }
 
-    // 10. 返回结果
+    // 10. 更新 QuotaHolders 集合（记录每个专业代码下有名额的导师）
+    try {
+      // 构建 QuotaHolder 数据：专业代码 -> 导师列表
+      const quotaHolderData = {
+        level1: {},  // 一级代码 -> [{ teacherId, teacherName, quota }]
+        level2: {},  // 二级代码 -> [{ teacherId, teacherName, quota }]
+        level3: {}   // 三级代码 -> [{ teacherId, teacherName, quota }]
+      };
+      
+      // 遍历所有导师数据，按专业代码分类
+      for (let teacherId in teacherData) {
+        const teacher = teacherData[teacherId];
+        const teacherName = teacher.name;
+        
+        for (let code in teacher.quotas) {
+          const quota = teacher.quotas[code];
+          if (quota > 0) {
+            // 根据代码长度判断层级
+            let level;
+            if (code.length <= 2) {
+              level = 'level1';
+            } else if (code.length <= 4) {
+              level = 'level2';
+            } else {
+              level = 'level3';
+            }
+            
+            if (!quotaHolderData[level][code]) {
+              quotaHolderData[level][code] = [];
+            }
+            
+            quotaHolderData[level][code].push({
+              teacherId: teacherId,
+              teacherName: teacherName,
+              quota: quota
+            });
+          }
+        }
+      }
+      
+      // 尝试更新或创建 QuotaHolders 文档
+      try {
+        const quotaHolderRes = await db.collection('QuotaHolders').doc('quotaholder').get();
+        const currentData = quotaHolderRes.data || {};
+        
+        // 合并现有数据
+        const currentLevel1 = currentData.level1_holders || {};
+        const currentLevel2 = currentData.level2_holders || {};
+        const currentLevel3 = currentData.level3_holders || {};
+        
+        // 合并一级专业导师列表
+        for (let code in quotaHolderData.level1) {
+          if (!currentLevel1[code]) {
+            currentLevel1[code] = [];
+          }
+          // 合并导师列表，避免重复
+          quotaHolderData.level1[code].forEach(newTeacher => {
+            const existingIndex = currentLevel1[code].findIndex(t => t.teacherId === newTeacher.teacherId);
+            if (existingIndex >= 0) {
+              // 更新已有导师的名额
+              currentLevel1[code][existingIndex].quota += newTeacher.quota;
+            } else {
+              // 添加新导师
+              currentLevel1[code].push(newTeacher);
+            }
+          });
+        }
+        
+        // 合并二级专业导师列表
+        for (let code in quotaHolderData.level2) {
+          if (!currentLevel2[code]) {
+            currentLevel2[code] = [];
+          }
+          quotaHolderData.level2[code].forEach(newTeacher => {
+            const existingIndex = currentLevel2[code].findIndex(t => t.teacherId === newTeacher.teacherId);
+            if (existingIndex >= 0) {
+              currentLevel2[code][existingIndex].quota += newTeacher.quota;
+            } else {
+              currentLevel2[code].push(newTeacher);
+            }
+          });
+        }
+        
+        // 合并三级专业导师列表
+        for (let code in quotaHolderData.level3) {
+          if (!currentLevel3[code]) {
+            currentLevel3[code] = [];
+          }
+          quotaHolderData.level3[code].forEach(newTeacher => {
+            const existingIndex = currentLevel3[code].findIndex(t => t.teacherId === newTeacher.teacherId);
+            if (existingIndex >= 0) {
+              currentLevel3[code][existingIndex].quota += newTeacher.quota;
+            } else {
+              currentLevel3[code].push(newTeacher);
+            }
+          });
+        }
+        
+        // 更新 QuotaHolders
+        await db.collection('QuotaHolders').doc('quotaholder').update({
+          data: {
+            level1_holders: currentLevel1,
+            level2_holders: currentLevel2,
+            level3_holders: currentLevel3,
+            last_updated: Date.now()
+          }
+        });
+        console.log('QuotaHolders 更新成功');
+      } catch (holderErr) {
+        // 如果文档不存在，创建新文档
+        if (holderErr.errCode === -1 || holderErr.message.includes('not exist')) {
+          await db.collection('QuotaHolders').add({
+            data: {
+              _id: 'quotaholder',
+              level1_holders: quotaHolderData.level1,
+              level2_holders: quotaHolderData.level2,
+              level3_holders: quotaHolderData.level3,
+              last_updated: Date.now()
+            }
+          });
+          console.log('QuotaHolders 创建成功');
+        } else {
+          console.error('QuotaHolders 更新失败:', holderErr);
+        }
+      }
+    } catch (quotaHolderErr) {
+      console.error('QuotaHolders 处理失败:', quotaHolderErr);
+    }
+
+    // 11. 返回结果
     const result = { 
       success: true, 
       message: "导师名额更新完成。",

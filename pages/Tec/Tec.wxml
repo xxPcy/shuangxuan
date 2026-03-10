@@ -23,8 +23,8 @@
     <view class="quota-row">
       <text class="short-line"> <text class="bold">{{item.label}} </text> 名额变化：<text class="bold">{{item.pendingValue > 0 ? '+' : ''}}{{item.pendingValue}}</text></text>
       <text class="short-line">剩余时间：{{item.remainingTime}}</text>
-      <button data-type="{{item.key}}" data-action="approve" bindtap="handleApproval" class="accept" wx:if="{{item.remainingTime !== '0小时0分钟'}}">确认</button>
-      <button data-type="{{item.key}}" data-action="reject" bindtap="handleApproval" class="reject" wx:if="{{item.remainingTime !== '0小时0分钟'}}">拒绝</button>
+      <button data-type="{{item.key}}" data-index="{{index}}" bindtap="handleApprove" class="accept" wx:if="{{item.remainingTime !== '0小时0分钟'}}">确认</button>
+      <button data-type="{{item.key}}" data-index="{{index}}" bindtap="handleReject" class="reject" wx:if="{{item.remainingTime !== '0小时0分钟'}}">拒绝</button>
     </view>
   </block>
   <view wx:if="{{pendingChanges.length === 0}}">
@@ -38,11 +38,12 @@
   <text class="title">招生名额信息</text>
   <block wx:for="{{quotaInfo}}" wx:key="key">
     <view class="quota-item">
-      <text>{{item.label}}:</text>
+      <text>[{{item.level}}] {{item.key}} {{item.label}}:</text>
       <view>
         <text >总名额: <text style="font-weight: bold;">{{item.total}}</text></text>
         <text>已使用: <text style="font-weight: bold;">{{item.used}}</text></text>
         <text>剩余: <text style="font-weight: bold;">{{item.remaining}}</text></text>
+        <text wx:if="{{item.pending > 0}}">待审批: <text style="font-weight: bold;">{{item.pending}}</text></text>
       </view>
     </view>
   </block>
