@@ -12,7 +12,7 @@ exports.main = async (event, context) => {
     specializedCode, // 学生三级专业代码
     page = 1,
     pageSize = 20,
-    useQuota = false // false: 占用指标，只看当前有可用名额；true: 不占用指标，可看曾经分配过该专业链路名额的老师
+    useQuota = false // true: 占用指标（只看已审批可用名额）；false: 不占用指标（看历史分配链路）
   } = event;
 
   const rawSpecializedCode = String(specializedCode || '').trim();
@@ -87,46 +87,48 @@ exports.main = async (event, context) => {
       allTeachers = allTeachers.concat(teacherRes.data || []);
     }
 
-    // 3) 计算当前可用名额（confirmedRemaining + pending）
+    // 3) 计算当前可用名额（仅已审批）并按 level3 -> level2 -> level1 优先
     let teachersWithQuota = allTeachers.map((teacher) => {
       const quotaSettings = Array.isArray(teacher.quota_settings) ? teacher.quota_settings : [];
-      const matchedEntries = quotaSettings.filter((item) => {
-        if (!['level1', 'level2', 'level3'].includes(item.type)) return false;
-        const code = String(item.code || '');
-        return codeMatches(code);
-      });
 
-      const confirmedRemainingQuota = matchedEntries.reduce((sum, item) => {
+      const approvedByCode = new Map();
+      quotaSettings.forEach((item) => {
+        if (!['level1', 'level2', 'level3'].includes(item.type)) return;
+        const code = String(item.code || '').trim();
+        if (!codeMatches(code)) return;
         const maxQuota = Number(item.max_quota || 0);
         const usedQuota = Number(item.used_quota || 0);
-        return sum + Math.max(maxQuota - usedQuota, 0);
-      }, 0);
+        const remaining = Math.max(maxQuota - usedQuota, 0);
+        approvedByCode.set(code, (approvedByCode.get(code) || 0) + remaining);
+      });
 
-      const pendingQuota = matchedEntries.reduce((sum, item) => {
-        return sum + Number(item.pending_quota || 0);
-      }, 0);
+      const level3Code = rawSpecializedCode.length >= 6 ? rawSpecializedCode.slice(0, 6) : '';
+      const level2Code = rawSpecializedCode.length >= 4 ? rawSpecializedCode.slice(0, 4) : '';
+      const level1Code = rawSpecializedCode.length >= 2 ? rawSpecializedCode.slice(0, 2) : '';
+      const firstAvailableCode = [level3Code, level2Code, level1Code].find((code) => code && Number(approvedByCode.get(code) || 0) > 0) || '';
+      const matchedApprovedQuota = firstAvailableCode ? Number(approvedByCode.get(firstAvailableCode) || 0) : 0;
 
       const teacherId = String(teacher.Id || '').trim();
       const history = candidateMap.get(teacherId);
 
       return {
         ...teacher,
-        matchedCode: rawSpecializedCode,
-        matchedConfirmedQuota: confirmedRemainingQuota,
-        matchedPendingQuota: pendingQuota,
-        matchedQuota: confirmedRemainingQuota,
+        matchedCode: firstAvailableCode || rawSpecializedCode,
+        matchedConfirmedQuota: matchedApprovedQuota,
+        matchedPendingQuota: 0,
+        matchedQuota: matchedApprovedQuota,
         historyQuota: history ? history.historyQuota : 0
       };
     });
 
-    // 占用指标学生：只看当前可用名额 > 0
-    // 不占用指标学生(useQuota=true)：看曾经被分配过该专业链路名额的所有导师（可含0名额）
-    if (!useQuota) {
+    // useQuota=true: 占用指标学生，只看“已审批可用名额 > 0”
+    // useQuota=false: 不占指标学生，看历史分配链路（08/0854/085410 任一命中即可）
+    if (useQuota) {
       teachersWithQuota = teachersWithQuota.filter((t) => Number(t.matchedQuota || 0) > 0);
     } else {
       teachersWithQuota = teachersWithQuota.filter((t) => {
         const teacherId = String(t.Id || '').trim();
-        return historyTeacherIdSet.has(teacherId) || Number(t.matchedQuota || 0) > 0;
+        return historyTeacherIdSet.has(teacherId);
       });
     }
 
