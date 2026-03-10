@@ -138,7 +138,7 @@ Page({
 
     db.collection('Stu').doc(student._id).update({
       data: {
-        preselection: [teacher.name, teacher._id],
+        preselection: [teacher.name, teacher._id,selectedName,selectedCode],
         status: 'pending',
         selectedField: selectedCode
       }

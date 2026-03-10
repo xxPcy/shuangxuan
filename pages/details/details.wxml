@@ -37,7 +37,7 @@
   </view>
 </view>
 
-<view class="quota-title">可选专业（按 Logic 动态生成）</view>
+<view class="quota-title">可选专业</view>
 <view class="quota-grid">
   <view class="quota-item" wx:for="{{quotaButtons}}" wx:key="code">
     <button
