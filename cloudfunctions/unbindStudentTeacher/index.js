@@ -133,13 +133,15 @@ exports.main = async (event, context) => {
 
     // 4. 查找导师的学生信息
     let studentIndex = -1;
-    let studentMajor = null;
+    let studentCategoryKey = null;
+    let matchedStudentInfo = null;
 
-    // 遍历导师的学生数组，找到该学生并确定其专业
+    // 遍历导师的学生数组，找到该学生并确定其 categoryKey（专业代码）
     for (const studentInfo of teacher.student) {
-      if (studentInfo.Id === studentId) {  // 用导师的学生数组中的 Id 来匹配学生Id
-        studentIndex = teacher.student.indexOf(studentInfo); // 获取该学生的索引
-        studentMajor = studentInfo.categoryKey; // 获取学生的专业（如 "dzxxzs" 或其他）
+      if (studentInfo.Id === studentId) {
+        studentIndex = teacher.student.indexOf(studentInfo);
+        studentCategoryKey = studentInfo.categoryKey; // 接受时记录的专业代码
+        matchedStudentInfo = studentInfo;
         break;
       }
     }
@@ -151,16 +153,39 @@ exports.main = async (event, context) => {
     // 5. 删除导师的学生
     teacher.student.splice(studentIndex, 1);
 
-    // 6. 更新导师名额：增加对应专业的剩余名额，减少已使用名额
-    const updateData = {
-      student: teacher.student, // 更新学生数组
-      [`${studentMajor}`]: teacher[studentMajor] + 1, // 增加剩余名额
-      [`used_${studentMajor}`]: teacher[`used_${studentMajor}`] - 1, // 减少已使用名额
-    };
+    // 6. 判断该学生是否占用指标
+    const studentUseQuota = matchedStudentInfo ? (matchedStudentInfo.useQuota !== false) : true; // 默认占用
+
+    // 7. 在 quota_settings 中找到对应条目并恢复名额（仅占用指标的学生需要恢复）
+    const newQuotaSettings = [...(teacher.quota_settings || [])];
+    if (studentUseQuota && studentCategoryKey) {
+      const quotaSettings = teacher.quota_settings || [];
+      const studentTrack = student.track || 'regular';
+
+      // 按 categoryKey + track 匹配（优先精确匹配）
+      let matchedQuotaIndex = quotaSettings.findIndex(q => 
+        q.code === studentCategoryKey && (q.track || 'regular') === studentTrack
+      );
+      
+      // 如果精确匹配失败，尝试只按 code 匹配（兼容旧数据）
+      if (matchedQuotaIndex === -1) {
+        matchedQuotaIndex = quotaSettings.findIndex(q => q.code === studentCategoryKey);
+      }
+
+      if (matchedQuotaIndex >= 0) {
+        newQuotaSettings[matchedQuotaIndex] = {
+          ...newQuotaSettings[matchedQuotaIndex],
+          used_quota: Math.max((newQuotaSettings[matchedQuotaIndex].used_quota || 0) - 1, 0)
+        };
+      }
+    }
 
     // 7. 更新导师数据库
     await transaction.collection('Teacher').doc(teacher._id).update({
-      data: updateData
+      data: {
+        student: teacher.student,
+        quota_settings: newQuotaSettings
+      }
     });
 
     // 8. 提交事务

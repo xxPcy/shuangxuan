@@ -129,6 +129,7 @@ exports.main = async (event, context) => {
       .sort((a, b) => a.code.localeCompare(b.code))
       .map(item => ({
         ...item,
+        track: 'regular',  // 默认为普通类型
         max_quota: 0,      // 总分配名额
         pending_quota: 0,  // 待审核名额 (初始为0，管理员分配后增加)
         used_quota: 0      // 已招收名额

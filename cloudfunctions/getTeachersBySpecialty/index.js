@@ -10,6 +10,7 @@ const _ = db.command;
 exports.main = async (event, context) => {
   const {
     specializedCode, // 学生三级专业代码
+    studentTrack = 'regular', // 学生的 track
     page = 1,
     pageSize = 20,
     useQuota = false // true: 占用指标（只看已审批可用名额）；false: 不占用指标（看历史分配链路）
@@ -48,10 +49,13 @@ exports.main = async (event, context) => {
     // 1) 按专业代码前缀聚合“曾经被分配过该专业链路”的导师候选池
     const candidateMap = new Map(); // teacherId -> { teacherId, teacherName, historyQuota }
 
+    // QuotaHolders key 可能是 "code|track" 格式或纯 code 格式，需兼容
     const collectFromLevel = (holders) => {
-      Object.keys(holders).forEach((code) => {
-        if (!codeMatches(code)) return;
-        const teacherList = holders[code] || [];
+      Object.keys(holders).forEach((holderKey) => {
+        // 从 key 中提取纯 code 部分（兼容 "code|track" 和纯 "code" 两种格式）
+        const pureCode = holderKey.includes('|') ? holderKey.split('|')[0] : holderKey;
+        if (!codeMatches(pureCode)) return;
+        const teacherList = holders[holderKey] || [];
         teacherList.forEach((t) => {
           const teacherId = String(t.teacherId || '').trim();
           if (!teacherId) return;
@@ -96,6 +100,9 @@ exports.main = async (event, context) => {
         if (!['level1', 'level2', 'level3'].includes(item.type)) return;
         const code = String(item.code || '').trim();
         if (!codeMatches(code)) return;
+        // 按学生 track 过滤：只匹配相同 track 的名额
+        const quotaTrack = item.track || 'regular';
+        if (quotaTrack !== studentTrack) return;
         const maxQuota = Number(item.max_quota || 0);
         const usedQuota = Number(item.used_quota || 0);
         const remaining = Math.max(maxQuota - usedQuota, 0);

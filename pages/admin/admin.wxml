@@ -84,7 +84,7 @@
     enhanced="{{true}}"
     show-scrollbar="{{true}}"
   >
-    <block wx:for="{{quotaTreeList}}" wx:key="code">
+    <block wx:for="{{quotaTreeList}}" wx:key="index">
       <view 
         class="tr row-level-{{item.level}}" 
         hidden="{{!item.show}}" 
@@ -121,6 +121,15 @@
     </view>
   </scroll-view>
 
+</view>
+
+<!-- 不占用指标学生统计 -->
+<view class="non-quota-stats" style="margin: 20rpx 0; padding: 20rpx 30rpx; background: #f9f9f9; border-radius: 12rpx; display: flex; justify-content: space-between; align-items: center;">
+  <view style="font-size: 28rpx; color: #333;">
+    <text style="font-weight: bold;">不占用指标学生：</text>
+    <text style="color: #666;">共 {{nonQuotaTotalCount}} 人</text>
+    <text style="margin-left: 20rpx; color: #007aff; font-weight: bold;">已绑定导师 {{nonQuotaChosedCount}} 人</text>
+  </view>
 </view>
 
 <button class="submit" style="margin-top: 40rpx; width: 100%;" bindtap="loadQuotaData">
@@ -190,7 +199,7 @@
         <button class="close-btn" bindtap="closeTeachermention">×</button>
     </view>
         <text>招生名额:</text>          
-          <block wx:for="{{availableQuotas}}" wx:key="code">
+          <block wx:for="{{availableQuotas}}" wx:key="index">
           <view class="quota-row">
           <text>{{item.name}}（{{item.code}}）：{{item.total_available}}（含{{item.pending_quota}}个待审批）</text>
           </view>
@@ -227,15 +236,15 @@
     <text>编辑导师 {{selectedTeacher.name}} 招生名额</text>
     <button class="close-btn" bindtap="closeTeachermodify">×</button>
     <scroll-view scroll-y="true" >
-    <view wx:for="{{editableQuotas}}" wx:key="code">
+    <view wx:for="{{editableQuotas}}" wx:key="index">
 
       <view class="quota-row">
         <text>{{item.name}}（{{item.code}}）</text>
         <text>未确认: {{item.pending_quota}} | 已确认未使用: {{item.confirmed_remaining}} | 已使用: {{item.used_quota}} | 可新增(被退回): {{item.rejected_quota}}</text>
         <text wx:if="{{item.pendingChange > 0}}">已新增: +{{item.pendingChange}}</text>
         <text wx:if="{{item.subtractFromPending > 0 || item.subtractFromConfirmed > 0}}">已减少: {{item.subtractFromPending > 0 ? '未确认-' + item.subtractFromPending : ''}}{{item.subtractFromPending > 0 && item.subtractFromConfirmed > 0 ? ', ' : ''}}{{item.subtractFromConfirmed > 0 ? '已确认未使用-' + item.subtractFromConfirmed : ''}}</text>
-        <button data-code="{{item.code}}" data-action="add" bindtap="modifyQuota" class="add">加一</button>
-        <button data-code="{{item.code}}" data-action="subtract" bindtap="modifyQuota" class="reduce">减一</button>
+        <button data-code="{{item.code}}" data-track="{{item.track}}" data-action="add" bindtap="modifyQuota" class="add">加一</button>
+        <button data-code="{{item.code}}" data-track="{{item.track}}" data-action="subtract" bindtap="modifyQuota" class="reduce">减一</button>
       </view>
 
     </view>

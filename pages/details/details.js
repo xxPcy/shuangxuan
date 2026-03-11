@@ -53,6 +53,19 @@ Page({
   buildQuotaButtons(logicRows, teacher, student, status) {
     const quotaSettings = Array.isArray(teacher.quota_settings) ? teacher.quota_settings : [];
     const studentCode = String(student.specializedCode || student.level3_code || '').trim();
+    const studentTrack = student.track || 'regular'; // 学生的 track
+
+    console.log('=== buildQuotaButtons 调试 ===');
+    console.log('学生专业代码:', studentCode);
+    console.log('学生 track:', studentTrack);
+    console.log('学生状态:', status);
+    console.log('导师 quota_settings 条目数:', quotaSettings.length);
+    
+    // 打印导师有名额的条目
+    const nonZeroQuotas = quotaSettings.filter(q => (q.max_quota || 0) > 0 || (q.pending_quota || 0) > 0);
+    console.log('导师有名额的条目:', nonZeroQuotas.map(q => 
+      `${q.code}|${q.track || 'regular'} max=${q.max_quota} used=${q.used_quota} pending=${q.pending_quota}`
+    ));
 
     const level3Map = new Map();
     logicRows.forEach((row) => {
@@ -65,10 +78,20 @@ Page({
     const list = Array.from(level3Map.values()).sort((a, b) => a.code.localeCompare(b.code));
 
     return list.map((item) => {
+      const studentUseQuota = student.useQuota !== false; // 默认占用指标
+
+      // 不占用指标的学生：不限制 track，只要导师有该专业代码的任意配置即可
+      // 占用指标的学生：只匹配与学生 track 相同的 quota_settings 条目
       const matchedEntries = quotaSettings.filter((quota) => {
         if (!['level1', 'level2', 'level3'].includes(quota.type)) return false;
         const quotaCode = String(quota.code || '').trim();
-        return quotaCode && item.code.startsWith(quotaCode);
+        if (!quotaCode || !item.code.startsWith(quotaCode)) return false;
+        // 占用指标的学生需要 track 匹配；不占用指标的学生不限制 track
+        if (studentUseQuota) {
+          const quotaTrack = quota.track || 'regular';
+          return quotaTrack === studentTrack;
+        }
+        return true;
       });
 
       const approvedRemaining = matchedEntries.reduce((sum, quota) => {
@@ -78,7 +101,9 @@ Page({
       }, 0);
 
       const isOwnMajor = studentCode && item.code === studentCode;
-      const canSelect = status === 'chosing' && isOwnMajor && approvedRemaining > 0;
+      // 不占用指标的学生：只要是自己的专业且导师有该专业配置就可以选
+      // 占用指标的学生：还需要 approvedRemaining > 0
+      const canSelect = status === 'chosing' && isOwnMajor && (studentUseQuota ? approvedRemaining > 0 : matchedEntries.length > 0);
 
       return {
         code: item.code,
@@ -135,6 +160,7 @@ Page({
 
   submitSelection(student, teacher, selectedCode, selectedName) {
     const _ = db.command;
+    const studentTrack = student.track || 'regular'; // 学生的 track
 
     db.collection('Stu').doc(student._id).update({
       data: {
@@ -152,6 +178,8 @@ Page({
             studentName: student.name,
             specialized: selectedName,
             specializedCode: selectedCode,
+            track: studentTrack, // 传递学生的 track
+            useQuota: student.useQuota !== false, // 是否占用指标（默认占用）
             status: 'pending',
             phoneNumber: student.phoneNumber,
             description: student.description,

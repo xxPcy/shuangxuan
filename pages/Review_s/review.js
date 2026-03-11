@@ -237,6 +237,8 @@ Page({
   
   
       const level3Code = latestStudent.level3_code || latestStudent.specializedCode || '';
+      const studentTrack = latestStudent.track || selectedStudent.track || 'regular'; // 学生的 track
+      const studentUseQuota = latestStudent.useQuota !== false; // 是否占用指标（默认占用）
 
       if (!level3Code) {
         wx.hideLoading();
@@ -259,13 +261,30 @@ Page({
 
       let teacherUpdate;
 
-      // 新版：quota_settings 支持前缀层级名额（一级/二级/三级）
-      // 规则：优先使用三级名额，其次二级，最后一级
-      if (Array.isArray(Tec.quota_settings) && Tec.quota_settings.length > 0 && level3Code) {
+      if (!studentUseQuota) {
+        // 不占用指标的学生：不检查名额、不扣减 used_quota，直接绑定
+        teacherUpdate = db.collection('Teacher').doc(Tec._id).update({
+          data: {
+            prestudent: _.pull({
+              studentId: selectedStudent.studentId,
+            }),
+            student: _.push({
+              studentId: selectedStudent.studentId,
+              specialized: selectedStudent.specialized,
+              studentName: selectedStudent.studentName,
+              phoneNumber: selectedStudent.phoneNumber,
+              Id: selectedStudent.Id,
+              categoryKey: level3Code,
+              useQuota: false, // 标记不占用指标
+            }),
+          },
+        });
+      } else if (Array.isArray(Tec.quota_settings) && Tec.quota_settings.length > 0 && level3Code) {
         const allCandidates = Tec.quota_settings
           .map((item, index) => ({ item, index }))
           .filter(({ item }) => ['level1', 'level2', 'level3'].includes(item.type))
-          .filter(({ item }) => String(level3Code).startsWith(String(item.code || '')));
+          .filter(({ item }) => String(level3Code).startsWith(String(item.code || '')))
+          .filter(({ item }) => (item.track || 'regular') === studentTrack); // 按 track 过滤
 
         const findFirstAvailable = (candidates) =>
           candidates.find(({ item }) => {
@@ -313,6 +332,7 @@ Page({
               phoneNumber: selectedStudent.phoneNumber,
               Id: selectedStudent.Id,
               categoryKey: matchedQuota.code,
+              useQuota: true, // 标记占用指标
             }),
           },
         });
@@ -328,14 +348,15 @@ Page({
   
       await Promise.all([studentUpdate, teacherUpdate]);
   
-      // **检查招生名额**
+      // **检查招生名额**（只对占用指标的学生检查，不占用指标的学生不影响名额）
       const teacherData = await db.collection('Teacher').doc(Tec_id).get();
       let quotaExhausted = false;
-      if (Array.isArray(teacherData.data.quota_settings) && level3Code) {
+      if (studentUseQuota && Array.isArray(teacherData.data.quota_settings) && level3Code) {
         const matchedCandidates = teacherData.data.quota_settings
           .filter((item) =>
             ['level1', 'level2', 'level3'].includes(item.type) &&
-            String(level3Code).startsWith(String(item.code || ''))
+            String(level3Code).startsWith(String(item.code || '')) &&
+            (item.track || 'regular') === studentTrack
           );
 
         quotaExhausted = matchedCandidates.length > 0 && matchedCandidates.every((item) =>

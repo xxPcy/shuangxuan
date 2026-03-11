@@ -14,6 +14,7 @@ Page({
     category:'',//学生报考类别
     stu_id:'',//学生的_id
     specializedCode: '', // 学生三级专业代码
+    studentTrack: 'regular', // 学生的 track（regular/joint/parttime）
     useQuota: false, // 是否占用指标（true:占用，false:不占用）
   },
 
@@ -82,6 +83,7 @@ viewAnnouncement(event) {
       stu_id:stu_id,
       category:data.specialized,
       specializedCode: specializedCode,
+      studentTrack: data.track || 'regular',
       useQuota: !!data.useQuota,
     }, () => {
       this.loadTeachers(); // 加载导师数据
@@ -95,17 +97,18 @@ viewAnnouncement(event) {
     });
     
     const that = this;
-    const { specializedCode, page, pageSize, useQuota } = this.data;
+    const { specializedCode, studentTrack, page, pageSize, useQuota } = this.data;
     
-    console.log("loadTeachers - 三级专业代码:", specializedCode);
+    console.log("loadTeachers - 三级专业代码:", specializedCode, "track:", studentTrack);
     
-    // 如果有三级专业代码，使用新的基于QuotaHolders的查询方式
+    // 使用新的基于QuotaHolders的查询方式
     if (specializedCode) {
       console.log("使用 getTeachersBySpecialty 查询导师");
       wx.cloud.callFunction({
         name: 'getTeachersBySpecialty',
         data: {
           specializedCode: specializedCode,
+          studentTrack: studentTrack,
           page: page,
           pageSize: pageSize,
           useQuota: useQuota
@@ -187,7 +190,7 @@ viewAnnouncement(event) {
   // 本地兜底：直接读取 Teacher.quota_settings 计算可见导师，避免云函数未同步导致漏显示
   loadTeachersByQuotaSettingsDirect() {
     const db = wx.cloud.database();
-    const { specializedCode, page, pageSize, useQuota } = this.data;
+    const { specializedCode, studentTrack, page, pageSize, useQuota } = this.data;
 
     if (!specializedCode) {
       wx.hideLoading();
@@ -207,9 +210,11 @@ viewAnnouncement(event) {
           const holders = [doc.level1_holders || {}, doc.level2_holders || {}, doc.level3_holders || {}];
           const set = new Set();
           holders.forEach((holderMap) => {
-            Object.keys(holderMap).forEach((code) => {
-              if (!this.codeMatches(specializedCode, code)) return;
-              (holderMap[code] || []).forEach((item) => {
+            Object.keys(holderMap).forEach((holderKey) => {
+              // 兼容 "code|track" 和纯 "code" 两种 key 格式
+              const pureCode = holderKey.includes('|') ? holderKey.split('|')[0] : holderKey;
+              if (!this.codeMatches(specializedCode, pureCode)) return;
+              (holderMap[holderKey] || []).forEach((item) => {
                 const teacherId = String(item.teacherId || '').trim();
                 if (teacherId) set.add(teacherId);
               });
@@ -246,6 +251,9 @@ viewAnnouncement(event) {
           if (!['level1', 'level2', 'level3'].includes(item.type)) return;
           const code = String(item.code || '').trim();
           if (!this.codeMatches(specializedCode, code)) return;
+          // 按学生 track 过滤
+          const quotaTrack = item.track || 'regular';
+          if (quotaTrack !== studentTrack) return;
           const maxQuota = Number(item.max_quota || 0);
           const usedQuota = Number(item.used_quota || 0);
           const remaining = Math.max(maxQuota - usedQuota, 0);

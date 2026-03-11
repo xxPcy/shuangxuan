@@ -160,6 +160,17 @@ exports.main = async (event, context) => {
             ...defaultFields // 自动填充默认字段
           };
 
+          // 根据 studySystem 映射 track 字段
+          // 非全日制 -> parttime，联培 -> joint，其他 -> regular
+          const studySystemStr = String(studySystem || '').trim();
+          if (studySystemStr.includes('非全')) {
+            studentData.track = 'parttime';
+          } else if (studySystemStr.includes('联培') || studySystemStr.includes('基地')) {
+            studentData.track = 'joint';
+          } else {
+            studentData.track = 'regular';
+          }
+
           // 如果找到了对应的逻辑表数据，添加一级、二级代码和名称
           if (logicInfo) {
             studentData.level1_code = logicInfo.level1_code;

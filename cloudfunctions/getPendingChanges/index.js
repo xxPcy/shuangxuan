@@ -51,6 +51,7 @@ exports.main = async (event, context) => {
             label: quota.name,           // 专业名称
             code: quota.code,             // 专业代码
             type: quota.type,             // 级别类型 (level1, level2, level3)
+            track: quota.track || 'regular', // track 类型
             pendingValue: pendingValue,   // 待审批名额
             maxQuota: quota.max_quota || 0,   // 当前最大名额
             usedQuota: quota.used_quota || 0, // 已使用名额

@@ -130,20 +130,32 @@ Page({
         const teacherData = response.data;
         const quotaSettings = teacherData.quota_settings || [];
 
-        // 从 quota_settings 数组生成名额信息，按 code 排序
-        const sortedQuotaSettings = [...quotaSettings].sort((a, b) => {
-          return (a.code || '').localeCompare(b.code || '');
+        // 从 quota_settings 数组生成名额信息
+        // 只显示有实际名额的条目（总名额>0 或 待审批>0 或 已使用>0）
+        const filteredQuotaSettings = quotaSettings.filter((quota) => {
+          return (quota.max_quota || 0) > 0 || (quota.pending_quota || 0) > 0 || (quota.used_quota || 0) > 0;
         });
+
+        // 按 code + track 排序
+        const sortedQuotaSettings = [...filteredQuotaSettings].sort((a, b) => {
+          const codeCompare = (a.code || '').localeCompare(b.code || '');
+          if (codeCompare !== 0) return codeCompare;
+          return (a.track || 'regular').localeCompare(b.track || 'regular');
+        });
+
+        const trackLabelMap = { 'joint': '【联培】', 'parttime': '【非全】' };
 
         const quotaInfo = sortedQuotaSettings.map((quota) => {
           const maxQuota = quota.max_quota || 0;      // 最大名额（已确认）
           const usedQuota = quota.used_quota || 0;    // 已使用名额
           const pendingQuota = quota.pending_quota || 0; // 待审批名额
           const remaining = maxQuota - usedQuota;     // 剩余可用名额
+          const trackLabel = trackLabelMap[quota.track] || '';
 
           return {
-            label: quota.name,           // 类别名称
+            label: quota.name + trackLabel, // 类别名称 + track 标签
             code: quota.code,            // 专业代码
+            track: quota.track || 'regular', // track 类型
             type: quota.type,            // 级别类型
             total: maxQuota,             // 总名额（max_quota）
             used: usedQuota,             // 已使用名额
@@ -270,8 +282,8 @@ Page({
     });
   },
 
-  // 超时拒绝时自动记录拒绝信息（保持不变）
-  autoRejectApproval(teacherId, key, pendingValue) {
+  // 超时拒绝时自动记录拒绝信息（新版：基于 quota_settings）
+  autoRejectApproval(teacherId, code, track, pendingValue) {
     return db
       .collection('Teacher')
       .doc(teacherId)
@@ -280,45 +292,73 @@ Page({
         const teacherData = res.data;
         const assignedTeacherId = teacherData.Id;
         const teacherName = teacherData.name;
+        const quotaSettings = teacherData.quota_settings || [];
+        const matchTrack = track || 'regular';
 
-        if (teacherData.approval_status === 'rejected') {
-          console.warn(
-            `教师ID: ${assignedTeacherId}, 专业: ${key} 已被拒绝，跳过重复处理`
-          );
+        // 找到对应的 quota_settings 条目
+        const quotaIndex = quotaSettings.findIndex(q => 
+          q.code === code && (q.track || 'regular') === matchTrack
+        );
+        if (quotaIndex === -1) {
+          console.warn(`未找到 quota_settings 条目: code=${code}, track=${matchTrack}`);
           return Promise.resolve();
         }
 
-        return db
-          .collection('TotalQuota')
-          .doc('totalquota')
-          .update({
+        const quota = quotaSettings[quotaIndex];
+        const quotaType = quota.type; // level1, level2, level3
+
+        // 清空 pending_quota
+        const newQuotaSettings = [...quotaSettings];
+        newQuotaSettings[quotaIndex] = {
+          ...newQuotaSettings[quotaIndex],
+          pending_quota: 0
+        };
+
+        return db.collection('Teacher').doc(teacherId).update({
+          data: {
+            quota_settings: newQuotaSettings,
+            approval_status: 'rejected'
+          }
+        }).then(() => {
+          // 退回名额到 TotalQuota
+          const quotaFieldMap = {
+            'level1': 'level1_quota',
+            'level2': 'level2_quota', 
+            'level3': 'level3_quota'
+          };
+          const quotaField = quotaFieldMap[quotaType];
+          const quotaKey = `${code}|${matchTrack}`;
+
+          if (quotaField) {
+            return db.collection('TotalQuota').doc('totalquota').get()
+              .then((totalRes) => {
+                const levelQuota = totalRes.data[quotaField] || {};
+                const codeQuota = levelQuota[quotaKey] || levelQuota[code] || {};
+                const actualKey = levelQuota[quotaKey] ? quotaKey : code;
+
+                return db.collection('TotalQuota').doc('totalquota').update({
+                  data: {
+                    [`${quotaField}.${actualKey}.pending_approval`]: (codeQuota.pending_approval || 0) + pendingValue
+                  }
+                });
+              });
+          }
+        }).then(() => {
+          return db.collection('RejectedQuota').add({
             data: {
-              [`${key}_current`]: db.command.inc(pendingValue)
+              teacherName: teacherName,
+              teacherId: assignedTeacherId,
+              code: code,
+              track: matchTrack,
+              rejectedValue: pendingValue,
+              reason: '超时',
+              timestamp: new Date(),
             }
-          })
-          .then(() => {
-            return db.collection('Teacher').doc(teacherId).update({
-              data: {
-                [`pending_${key}`]: 0,
-                approval_status: 'rejected'
-              }
-            });
-          })
-          .then(() => {
-            return db.collection('RejectedQuota').add({
-              data: {
-                teacherName: teacherName,
-                teacherId: assignedTeacherId,
-                key,
-                rejectedValue: pendingValue,
-                reason: '超时',
-                timestamp: new Date(),
-              }
-            });
           });
+        });
       })
       .then(() => {
-        console.log(`超时审批自动拒绝成功，教师ID: ${teacherId}, 专业: ${key}`);
+        console.log(`超时审批自动拒绝成功，教师ID: ${teacherId}, code: ${code}, track: ${track}`);
       })
       .catch((err) => {
         console.error(
@@ -468,9 +508,9 @@ Page({
 
 //防止两个设备接受名额
   handleApproval(e) {
-    const { code, action } = e.currentTarget.dataset;
+    const { code, track, action } = e.currentTarget.dataset;
     const pendingChange = this.data.pendingChanges.find(
-      (item) => item.code === code
+      (item) => item.code === code && (item.track || 'regular') === (track || 'regular')
     );
   
     if (!pendingChange) {
@@ -502,8 +542,9 @@ Page({
             const teacherRes = await db.collection('Teacher').doc(teacherId).get();
             const quotaSettings = teacherRes.data.quota_settings || [];
             
-            // 找到对应的 quota_settings 项
-            const quotaIndex = quotaSettings.findIndex(q => q.code === code);
+            // 找到对应的 quota_settings 项（按 code + track 匹配）
+            const matchTrack = track || 'regular';
+            const quotaIndex = quotaSettings.findIndex(q => q.code === code && (q.track || 'regular') === matchTrack);
             if (quotaIndex === -1) {
               wx.showToast({ title: '未找到对应名额配置', icon: 'none' });
               return;
@@ -548,22 +589,25 @@ Page({
                 }
               });
 
-              // 退回名额到 TotalQuota 的 pending_approval
+              // 退回名额到 TotalQuota 的 pending_approval（使用 code|track 格式的 key）
               const quotaFieldMap = {
                 'level1': 'level1_quota',
                 'level2': 'level2_quota', 
                 'level3': 'level3_quota'
               };
               const quotaField = quotaFieldMap[quotaType];
+              const quotaKey = `${code}|${matchTrack}`; // 使用 code|track 格式
 
               if (quotaField) {
                 const totalQuotaRes = await db.collection('TotalQuota').doc('totalquota').get();
                 const levelQuota = totalQuotaRes.data[quotaField] || {};
-                const codeQuota = levelQuota[code] || {};
+                // 先尝试 code|track 格式，再尝试纯 code 格式兼容
+                const codeQuota = levelQuota[quotaKey] || levelQuota[code] || {};
+                const actualKey = levelQuota[quotaKey] ? quotaKey : code;
                 
                 await db.collection('TotalQuota').doc('totalquota').update({
                   data: {
-                    [`${quotaField}.${code}.pending_approval`]: (codeQuota.pending_approval || 0) + validValue
+                    [`${quotaField}.${actualKey}.pending_approval`]: (codeQuota.pending_approval || 0) + validValue
                   }
                 });
               }
@@ -575,6 +619,7 @@ Page({
                   teacherName: teacherData.name,
                   teacherId: teacherData.Id,
                   code: code,
+                  track: matchTrack,
                   label: label,
                   rejectedValue: validValue,
                   reason: '主动拒绝',
