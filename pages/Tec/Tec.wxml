@@ -21,7 +21,7 @@
   <text class="title">待审批招生名额变更</text>
   <block wx:for="{{pendingChanges}}" wx:key="uiKey">
     <view class="quota-row">
-      <text class="short-line"> <text class="bold">{{item.label}} </text> 名额变化：<text class="bold">{{item.pendingValue > 0 ? '+' : ''}}{{item.pendingValue}}</text></text>
+      <text class="short-line"> <text class="bold">{{item.label}} ({{item.code}})</text> 待审批名额：<text class="bold">+{{item.pendingValue}}</text></text>
       <text class="short-line">剩余时间：{{item.remainingTime}}</text>
       <button data-type="{{item.key}}" data-track="{{item.track}}" data-index="{{index}}" bindtap="handleApprove" class="accept" wx:if="{{item.remainingTime !== '0小时0分钟'}}">确认</button>
       <button data-type="{{item.key}}" data-track="{{item.track}}" data-index="{{index}}" bindtap="handleReject" class="reject" wx:if="{{item.remainingTime !== '0小时0分钟'}}">拒绝</button>
