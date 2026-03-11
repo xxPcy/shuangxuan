@@ -13,7 +13,7 @@ exports.main = async (event, context) => {
     page = 1,
     pageSize = 20,
     useQuota = false, // true: 占用指标（只看已审批可用名额）；false: 不占用指标（看历史分配链路）
-    track = 'regular'
+    track = '全日制'
   } = event;
 
   const rawSpecializedCode = String(specializedCode || '').trim();

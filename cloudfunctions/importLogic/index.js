@@ -216,7 +216,16 @@ exports.main = async (event, context) => {
       if (!row || row.length === 0 || !row[0]) continue;
 
       const rawTypeCell = String(row[6] || '').trim();
-      const rawType = rawTypeCell || lastTypeText;
+      const level3Name = String(row[4] || '').trim();
+      const inferTypeFromName = (name) => {
+        const n = String(name || '').trim();
+        if (!n) return '';
+        if (n.includes('士兵')) return '士兵';
+        if (n.includes('联培')) return '联培';
+        if (n.includes('非全')) return '非全日制';
+        return '';
+      };
+      const rawType = rawTypeCell || inferTypeFromName(level3Name) || lastTypeText;
       const normalizeTrack = (value) => {
         const raw = String(value || '').trim();
         const text = raw.toLowerCase();

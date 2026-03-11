@@ -78,7 +78,7 @@ Page({
                 level2_code: uq.level2_code || '',  // 二级专业代码
                 level3_code: uq.level3_code || '',  // 三级专业代码
                 useQuota: !!uq.useQuota, // true: 占用指标；false: 不占用指标
-                track: uq.track || 'regular',
+                track: uq.track || '全日制',
                 // description:uq.description,
                 // preselection:uq.preselection,
                 // Bigtype:uq.Bigtype,

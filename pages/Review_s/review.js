@@ -238,7 +238,7 @@ Page({
   
       const level3Code = latestStudent.level3_code || latestStudent.specializedCode || '';
       const studentUseQuota = !!latestStudent.useQuota;
-      const studentTrack = latestStudent.selectedTrack || latestStudent.track || 'regular';
+      const studentTrack = latestStudent.selectedTrack || latestStudent.track || '全日制';
 
       if (!level3Code) {
         wx.hideLoading();
@@ -267,7 +267,7 @@ Page({
           .map((item, index) => ({ item, index }))
           .filter(({ item }) => ['level1', 'level2', 'level3'].includes(item.type))
           .filter(({ item }) => String(level3Code).startsWith(String(item.code || '')))
-          .filter(({ item }) => String(item.track || 'regular') === String(studentTrack || 'regular'));
+          .filter(({ item }) => String(item.track || '全日制') === String(studentTrack || '全日制'));
 
         if (studentUseQuota) {
           const findFirstAvailable = (candidates) =>
@@ -306,7 +306,7 @@ Page({
                 phoneNumber: selectedStudent.phoneNumber,
                 Id: selectedStudent.Id,
                 categoryKey: matchedQuota.code,
-                track: matchedQuota.track || 'regular',
+                track: matchedQuota.track || '全日制',
               }),
             },
           });
@@ -329,7 +329,7 @@ Page({
                 phoneNumber: selectedStudent.phoneNumber,
                 Id: selectedStudent.Id,
                 categoryKey: allCandidates[0].item.code,
-                track: allCandidates[0].item.track || 'regular',
+                track: allCandidates[0].item.track || '全日制',
               }),
             },
           });
@@ -351,7 +351,7 @@ Page({
           .filter((item) =>
             ['level1', 'level2', 'level3'].includes(item.type) &&
             String(level3Code).startsWith(String(item.code || '')) &&
-            String(item.track || 'regular') === String(studentTrack || 'regular')
+            String(item.track || '全日制') === String(studentTrack || '全日制')
           );
 
         quotaExhausted = matchedCandidates.length > 0 && matchedCandidates.every((item) =>
