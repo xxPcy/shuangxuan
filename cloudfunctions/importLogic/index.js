@@ -32,7 +32,7 @@
 //     console.log('表头:', header);
 
 //     // 验证表头是否正确
-//     const expectedHeaders = ['一级名称', '一级代码', '二级名称', '二级代码', '三级名称', '三级代码'];
+//     const expectedHeaders = ['一级名称', '一级代码', '二级名称', '二级代码', '三级名称', '三级代码', '类型'];
 //     const headerValid = expectedHeaders.every((h, i) => {
 //       const actual = String(header[i] || '').trim();
 //       return actual === h;
@@ -193,12 +193,16 @@ exports.main = async (event, context) => {
     }
 
     // 4. 校验表头 (防止用户上传错模板)
-    // 假设模板顺序：一级名称, 一级代码, 二级名称, 二级代码, 三级名称, 三级代码
+    // 假设模板顺序：一级名称, 一级代码, 二级名称, 二级代码, 三级名称, 三级代码, 赛道(track)
     const header = sheetData[0];
-    const expectedHeaders = ['一级名称', '一级代码', '二级名称', '二级代码', '三级名称', '三级代码'];
+    const expectedHeaders = ['一级名称', '一级代码', '二级名称', '二级代码', '三级名称', '三级代码', '类型'];
     // 简单校验前两个字段，确保模板大概率是对的
-    if (String(header[0]).trim() !== expectedHeaders[0] || String(header[1]).trim() !== expectedHeaders[1]) {
-      return { success: false, error: '表头格式错误，请严格按照模板上传：一级名称, 一级代码...' };
+    const col0 = String(header[0] || '').trim();
+    const col1 = String(header[1] || '').trim();
+    const col6 = String(header[6] || '').trim();
+    const typeHeaderValid = col6 === '类型' || col6 === '赛道' || col6 === 'track';
+    if (col0 !== expectedHeaders[0] || col1 !== expectedHeaders[1] || !typeHeaderValid) {
+      return { success: false, error: '表头格式错误，请严格按照模板上传：一级名称, 一级代码, 二级名称, 二级代码, 三级名称, 三级代码, 类型' };
     }
 
     // 5. 组装数据 (准备插入)
@@ -210,17 +214,32 @@ exports.main = async (event, context) => {
       // 跳过空行（有些Excel看起来是空的但其实有格式）
       if (!row || row.length === 0 || !row[0]) continue;
 
+      const rawType = String(row[6] || '').trim();
+      const normalizeTrack = (value) => {
+        const raw = String(value || '').trim();
+        const text = raw.toLowerCase();
+        if (!raw) return '全日制';
+        if (['regular', '普通', '全日制'].includes(text) || raw === '普通' || raw === '全日制') return '全日制';
+        if (['joint', '联培'].includes(text) || raw === '联培') return '联培';
+        if (['parttime', '非全日制', '非全'].includes(text) || raw === '非全日制' || raw === '非全') return '非全日制';
+        if (['soldier', '士兵'].includes(text) || raw === '士兵') return '士兵';
+        // 允许扩展类型：保留用户在 Logic 表填写的原值
+        return raw;
+      };
+      const track = normalizeTrack(rawType);
+
       dataToInsert.push({
         // 【关键】必须强制转 String，否则 excel 里的 '08' 会变成数字 8，导致匹配失败
         level1_name: String(row[0] || '').trim(),
         level1_code: String(row[1] || '').trim(),
-        
+
         level2_name: String(row[2] || '').trim(),
         level2_code: String(row[3] || '').trim(),
-        
+
         level3_name: String(row[4] || '').trim(),
         level3_code: String(row[5] || '').trim(),
-        
+        track,
+
         createTime: now
       });
     }
