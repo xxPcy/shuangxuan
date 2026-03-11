@@ -98,7 +98,7 @@ exports.main = async (event, context) => {
     const pushQuota = (type, code, name, track) => {
       const normalizedCode = String(code || '').trim();
       if (!normalizedCode) return;
-      const normalizedTrack = String(track || 'regular').trim();
+      const normalizedTrack = String(track || '全日制').trim();
       const key = `${type}__${normalizedCode}__${normalizedTrack}`;
       if (quotaMap.has(key)) return;
       quotaMap.set(key, {
@@ -110,7 +110,7 @@ exports.main = async (event, context) => {
     };
 
     logicList.forEach(item => {
-      const track = String(item.track || 'regular').trim();
+      const track = String(item.track || '全日制').trim();
       pushQuota('level1', item.level1_code, item.level1_name, track);
       pushQuota('level2', item.level2_code, item.level2_name, track);
       pushQuota('level3', item.level3_code, item.level3_name, track);

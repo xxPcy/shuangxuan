@@ -208,13 +208,15 @@ exports.main = async (event, context) => {
     // 5. 组装数据 (准备插入)
     const dataToInsert = [];
     const now = new Date();
+    let lastTypeText = '全日制'; // 兼容 Excel 合并单元格：空类型继承上一行
 
     for (let i = 1; i < sheetData.length; i++) {
       const row = sheetData[i];
       // 跳过空行（有些Excel看起来是空的但其实有格式）
       if (!row || row.length === 0 || !row[0]) continue;
 
-      const rawType = String(row[6] || '').trim();
+      const rawTypeCell = String(row[6] || '').trim();
+      const rawType = rawTypeCell || lastTypeText;
       const normalizeTrack = (value) => {
         const raw = String(value || '').trim();
         const text = raw.toLowerCase();
@@ -227,6 +229,7 @@ exports.main = async (event, context) => {
         return raw;
       };
       const track = normalizeTrack(rawType);
+      lastTypeText = track;
 
       dataToInsert.push({
         // 【关键】必须强制转 String，否则 excel 里的 '08' 会变成数字 8，导致匹配失败
