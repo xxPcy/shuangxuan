@@ -35,6 +35,15 @@
 
 //     // 跳过标题行，从第二行开始读取数据并存储到数据库
 //     const tasks = [];
+
+    const detectTrack = (specialized, studySystem) => {
+      const spec = String(specialized || '').trim();
+      const sys = String(studySystem || '').trim();
+      if (spec.includes('联培')) return 'joint';
+      if (spec.includes('非全') || sys.includes('非全')) return 'parttime';
+      return 'regular';
+    };
+
 //     for (let i = 1; i < sheetData.length; i++) { // 从索引 1 开始跳过标题行
 //       const [name, Id, Password, Bigtype, specialized] = sheetData[i];
       
@@ -131,6 +140,15 @@ exports.main = async (event, context) => {
     const existingIds = existingStudentsQuery.data.map(student => student.Id);
 
     const tasks = [];
+
+    const detectTrack = (specialized, studySystem) => {
+      const spec = String(specialized || '').trim();
+      const sys = String(studySystem || '').trim();
+      if (spec.includes('联培')) return 'joint';
+      if (spec.includes('非全') || sys.includes('非全')) return 'parttime';
+      return 'regular';
+    };
+
     const existingStudents = []; // 用于存储已存在学生的名字和Id
     const unmatchedStudents = []; // 用于存储专业代码匹配失败的学生
 
@@ -157,6 +175,7 @@ exports.main = async (event, context) => {
             specializedCode: codeStr, // 三级专业代码
             studySystem: String(studySystem || '').trim(), // 学制
             useQuota: String(useQuota || '').trim() === '是', // 是否占用指标，"是"为true，其他为false
+            track: detectTrack(specialized, studySystem),
             ...defaultFields // 自动填充默认字段
           };
 
