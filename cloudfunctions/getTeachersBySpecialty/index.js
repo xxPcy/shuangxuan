@@ -33,6 +33,9 @@ exports.main = async (event, context) => {
   };
   const allowedTracks = getAllowedTracks(normalizedTrack);
 
+  // 严格按 Logic 控制可用赛道：只有该三级专业在 Logic 中配置过的 track 才允许参与匹配
+  const allowedCodesByTrack = new Map(); // track -> Set([level3, level2, level1])
+
   if (!rawSpecializedCode) {
     return {
       success: false,
@@ -42,6 +45,25 @@ exports.main = async (event, context) => {
   }
 
   try {
+    const logicRowsRes = await db.collection('Logic').where({
+      level3_code: rawSpecializedCode,
+      track: _.in(allowedTracks)
+    }).limit(100).get();
+
+    (logicRowsRes.data || []).forEach((row) => {
+      const rowTrack = String(row.track || 'regular').trim();
+      if (!allowedCodesByTrack.has(rowTrack)) {
+        allowedCodesByTrack.set(rowTrack, new Set());
+      }
+      const codeSet = allowedCodesByTrack.get(rowTrack);
+      const level3 = String(row.level3_code || '').trim();
+      const level2 = String(row.level2_code || '').trim();
+      const level1 = String(row.level1_code || '').trim();
+      if (level3) codeSet.add(level3);
+      if (level2) codeSet.add(level2);
+      if (level1) codeSet.add(level1);
+    });
+
     const quotaHoldersRes = await db.collection('QuotaHolders').doc('quotaholder').get();
     if (!quotaHoldersRes.data) {
       return {
@@ -55,6 +77,17 @@ exports.main = async (event, context) => {
     const level1Holders = quotaHolders.level1_holders || {};
     const level2Holders = quotaHolders.level2_holders || {};
     const level3Holders = quotaHolders.level3_holders || {};
+
+    if (useQuota && allowedCodesByTrack.size === 0) {
+      return {
+        success: true,
+        data: [],
+        total: 0,
+        hasMore: false,
+        page,
+        pageSize
+      };
+    }
 
     // 1) 按专业代码前缀聚合“曾经被分配过该专业链路”的导师候选池
     const candidateMap = new Map(); // teacherId -> { teacherId, teacherName, historyQuota }
@@ -110,6 +143,9 @@ exports.main = async (event, context) => {
         if (useQuota) {
           const itemTrack = String(item.track || 'regular').trim();
           if (!allowedTracks.includes(itemTrack)) return;
+          const allowedCodeSet = allowedCodesByTrack.get(itemTrack);
+          // 该 track 未在 Logic 给当前三级专业配置，或 code 不在该 track 的专业链路里，直接跳过
+          if (!allowedCodeSet || !allowedCodeSet.has(code)) return;
         }
         const maxQuota = Number(item.max_quota || 0);
         const usedQuota = Number(item.used_quota || 0);
