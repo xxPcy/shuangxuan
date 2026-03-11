@@ -37,14 +37,15 @@
   </view>
 </view>
 
-<view class="quota-title">可选专业</view>
+<view class="quota-title">可选专业（按 Logic 动态生成）</view>
 <view class="quota-grid">
-  <view class="quota-item" wx:for="{{quotaButtons}}" wx:key="code">
+  <view class="quota-item" wx:for="{{quotaButtons}}" wx:key="key">
     <button
       class="quota-btn"
       style="background-color: {{item.color}};"
       data-code="{{item.code}}"
       data-name="{{item.name}}"
+      data-track="{{item.track}}"
       data-disabled="{{item.disabled}}"
       bindtap="selectTeacherByCategory"
       disabled="{{item.disabled}}"

@@ -32,7 +32,7 @@
 //     console.log('表头:', header);
 
 //     // 验证表头是否正确
-//     const expectedHeaders = ['一级名称', '一级代码', '二级名称', '二级代码', '三级名称', '三级代码'];
+//     const expectedHeaders = ['一级名称', '一级代码', '二级名称', '二级代码', '三级名称', '三级代码', '赛道'];
 //     const headerValid = expectedHeaders.every((h, i) => {
 //       const actual = String(header[i] || '').trim();
 //       return actual === h;
@@ -193,12 +193,12 @@ exports.main = async (event, context) => {
     }
 
     // 4. 校验表头 (防止用户上传错模板)
-    // 假设模板顺序：一级名称, 一级代码, 二级名称, 二级代码, 三级名称, 三级代码
+    // 假设模板顺序：一级名称, 一级代码, 二级名称, 二级代码, 三级名称, 三级代码, 赛道(track)
     const header = sheetData[0];
-    const expectedHeaders = ['一级名称', '一级代码', '二级名称', '二级代码', '三级名称', '三级代码'];
+    const expectedHeaders = ['一级名称', '一级代码', '二级名称', '二级代码', '三级名称', '三级代码', '赛道'];
     // 简单校验前两个字段，确保模板大概率是对的
     if (String(header[0]).trim() !== expectedHeaders[0] || String(header[1]).trim() !== expectedHeaders[1]) {
-      return { success: false, error: '表头格式错误，请严格按照模板上传：一级名称, 一级代码...' };
+      return { success: false, error: '表头格式错误，请严格按照模板上传：一级名称, 一级代码, 二级名称, 二级代码, 三级名称, 三级代码, 赛道' };
     }
 
     // 5. 组装数据 (准备插入)
@@ -210,17 +210,21 @@ exports.main = async (event, context) => {
       // 跳过空行（有些Excel看起来是空的但其实有格式）
       if (!row || row.length === 0 || !row[0]) continue;
 
+      const rawTrack = String(row[6] || '').trim().toLowerCase();
+      const track = ['regular', 'joint', 'parttime'].includes(rawTrack) ? rawTrack : 'regular';
+
       dataToInsert.push({
         // 【关键】必须强制转 String，否则 excel 里的 '08' 会变成数字 8，导致匹配失败
         level1_name: String(row[0] || '').trim(),
         level1_code: String(row[1] || '').trim(),
-        
+
         level2_name: String(row[2] || '').trim(),
         level2_code: String(row[3] || '').trim(),
-        
+
         level3_name: String(row[4] || '').trim(),
         level3_code: String(row[5] || '').trim(),
-        
+        track,
+
         createTime: now
       });
     }

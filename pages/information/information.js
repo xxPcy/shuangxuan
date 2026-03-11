@@ -15,6 +15,7 @@ Page({
     stu_id:'',//学生的_id
     specializedCode: '', // 学生三级专业代码
     useQuota: false, // 是否占用指标（true:占用，false:不占用）
+    track: 'regular', // 赛道：regular/joint/parttime
   },
 
   // 加载公告
@@ -83,6 +84,7 @@ viewAnnouncement(event) {
       category:data.specialized,
       specializedCode: specializedCode,
       useQuota: !!data.useQuota,
+      track: data.track || 'regular',
     }, () => {
       this.loadTeachers(); // 加载导师数据
     });
@@ -95,7 +97,7 @@ viewAnnouncement(event) {
     });
     
     const that = this;
-    const { specializedCode, page, pageSize, useQuota } = this.data;
+    const { specializedCode, page, pageSize, useQuota, track } = this.data;
     
     console.log("loadTeachers - 三级专业代码:", specializedCode);
     
@@ -108,7 +110,8 @@ viewAnnouncement(event) {
           specializedCode: specializedCode,
           page: page,
           pageSize: pageSize,
-          useQuota: useQuota
+          useQuota: useQuota,
+          track: track
         },
         success: res => {
           wx.hideLoading();
@@ -187,7 +190,7 @@ viewAnnouncement(event) {
   // 本地兜底：直接读取 Teacher.quota_settings 计算可见导师，避免云函数未同步导致漏显示
   loadTeachersByQuotaSettingsDirect() {
     const db = wx.cloud.database();
-    const { specializedCode, page, pageSize, useQuota } = this.data;
+    const { specializedCode, page, pageSize, useQuota, track } = this.data;
 
     if (!specializedCode) {
       wx.hideLoading();
@@ -246,6 +249,10 @@ viewAnnouncement(event) {
           if (!['level1', 'level2', 'level3'].includes(item.type)) return;
           const code = String(item.code || '').trim();
           if (!this.codeMatches(specializedCode, code)) return;
+          if (useQuota) {
+            const itemTrack = String(item.track || 'regular').trim();
+            if (itemTrack !== String(track || 'regular').trim()) return;
+          }
           const maxQuota = Number(item.max_quota || 0);
           const usedQuota = Number(item.used_quota || 0);
           const remaining = Math.max(maxQuota - usedQuota, 0);

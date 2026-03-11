@@ -12,7 +12,8 @@ exports.main = async (event, context) => {
     specializedCode, // 学生三级专业代码
     page = 1,
     pageSize = 20,
-    useQuota = false // true: 占用指标（只看已审批可用名额）；false: 不占用指标（看历史分配链路）
+    useQuota = false, // true: 占用指标（只看已审批可用名额）；false: 不占用指标（看历史分配链路）
+    track = 'regular'
   } = event;
 
   const rawSpecializedCode = String(specializedCode || '').trim();
@@ -96,6 +97,10 @@ exports.main = async (event, context) => {
         if (!['level1', 'level2', 'level3'].includes(item.type)) return;
         const code = String(item.code || '').trim();
         if (!codeMatches(code)) return;
+        if (useQuota) {
+          const itemTrack = String(item.track || 'regular').trim();
+          if (itemTrack !== String(track || 'regular').trim()) return;
+        }
         const maxQuota = Number(item.max_quota || 0);
         const usedQuota = Number(item.used_quota || 0);
         const remaining = Math.max(maxQuota - usedQuota, 0);

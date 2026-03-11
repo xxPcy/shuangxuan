@@ -7,66 +7,50 @@ exports.main = async (event, context) => {
     const { teacherId } = event;
     console.log(`获取待审批数据: teacherId = ${teacherId}`);
 
-    // const timeoutDuration = 1 * 2 * 60 * 1000; // 2分钟超时
-    // const timeoutDuration = 24 * 60 * 60 * 1000;//24小时超时
-    const timeoutDuration = 48 * 60 * 60 * 1000;//48小时超时
-    // const timeoutDuration = 4 * 60 * 1000; // 4分钟超时
-
+    const timeoutDuration = 48 * 60 * 60 * 1000; // 48小时超时
     const currentTimestamp = new Date().getTime();
 
     const teacherRes = await db.collection('Teacher').doc(teacherId).get();
     const teacher = teacherRes.data;
 
     if (!teacher) {
-      console.log(`导师 ${teacherId} 不存在`);
       return { success: true, pendingChanges: [] };
     }
 
-    // 从 quota_settings 数组中读取待审批名额
-    const quotaSettings = teacher.quota_settings || [];
-    const approvalTimestamp = teacher.approval_timestamp || 0;
-    
+    // 仅支持基于专业代码(code)的 quota_settings 结构
+    if (!Array.isArray(teacher.quota_settings) || teacher.quota_settings.length === 0) {
+      return { success: true, pendingChanges: [] };
+    }
+
     const pendingChanges = [];
-    
-    // 按 code 排序（一级、二级、三级代码排序）
-    const sortedQuotaSettings = [...quotaSettings].sort((a, b) => {
-      return (a.code || '').localeCompare(b.code || '');
-    });
+    const approvalTimestamp = teacher.approval_timestamp || 0;
+    const elapsedTime = approvalTimestamp ? currentTimestamp - approvalTimestamp : timeoutDuration + 1;
+    const remainingTimeMs = timeoutDuration - elapsedTime;
 
-    for (const quota of sortedQuotaSettings) {
-      const pendingValue = quota.pending_quota || 0;
-
-      if (pendingValue > 0) {
-        // 如果没有 approval_timestamp，则给予完整的超时时间
-        let remainingTimeMs = timeoutDuration;
-        if (approvalTimestamp) {
-          const elapsedTime = currentTimestamp - approvalTimestamp;
-          remainingTimeMs = timeoutDuration - elapsedTime;
-        }
-
+    teacher.quota_settings
+      .filter((item) => ['level1', 'level2', 'level3'].includes(item.type) && Number(item.pending_quota || 0) > 0)
+      .forEach((item) => {
         if (remainingTimeMs > 0) {
           const remainingHours = Math.floor(remainingTimeMs / (60 * 60 * 1000));
           const remainingMinutes = Math.floor((remainingTimeMs % (60 * 60 * 1000)) / (60 * 1000));
+          const track = String(item.track || 'regular').trim();
+          const trackText = track === 'joint' ? '联培' : (track === 'parttime' ? '非全' : '普通');
+          const label = item.name || item.code;
           pendingChanges.push({
-            label: quota.name,           // 专业名称
-            code: quota.code,             // 专业代码
-            type: quota.type,             // 级别类型 (level1, level2, level3)
-            pendingValue: pendingValue,   // 待审批名额
-            maxQuota: quota.max_quota || 0,   // 当前最大名额
-            usedQuota: quota.used_quota || 0, // 已使用名额
-            teacherId: teacherId,
+            label: `${label}（${trackText}）`,
+            key: `${item.code}__${track}`,
+            code: item.code,
+            track,
+            pendingValue: Number(item.pending_quota || 0),
+            teacherId,
             remainingTime: `${remainingHours}小时${remainingMinutes}分钟`
           });
-        } else {
-          console.log(`忽略超时名额: ${teacher.name}, ${quota.name}, 剩余时间为 0`);
         }
-      }
-    }
+      });
 
-    console.log(`返回导师 ${teacherId} 的待审批数据:`, pendingChanges);
     return { success: true, pendingChanges };
   } catch (error) {
-    console.error("Error in getPendingChanges:", error);
+    console.error('Error in getPendingChanges:', error);
     return { success: false, error: error.message };
   }
 };

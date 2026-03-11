@@ -7,7 +7,9 @@ Page({
     Stu: {},
     StuID: '',
     teacherID: '',
-    quotaButtons: []
+    quotaButtons: [],
+    useQuota: true,
+    studentTrack: 'regular'
   },
 
   onLoad(options) {
@@ -35,7 +37,9 @@ Page({
         status,
         Stu: student,
         StuID: student.Id || '',
-        teacher
+        teacher,
+        useQuota: !!student.useQuota,
+        studentTrack: student.track || 'regular'
       });
 
       const quotaButtons = this.buildQuotaButtons(logicRows, teacher, student, status);
@@ -53,22 +57,33 @@ Page({
   buildQuotaButtons(logicRows, teacher, student, status) {
     const quotaSettings = Array.isArray(teacher.quota_settings) ? teacher.quota_settings : [];
     const studentCode = String(student.specializedCode || student.level3_code || '').trim();
+    const studentTrack = String(student.track || 'regular').trim();
+    const useQuota = !!student.useQuota;
 
     const level3Map = new Map();
     logicRows.forEach((row) => {
       const code = String(row.level3_code || '').trim();
       const name = String(row.level3_name || '').trim();
-      if (!code || !name || level3Map.has(code)) return;
-      level3Map.set(code, { code, name });
+      const track = String(row.track || 'regular').trim();
+      if (!code || !name) return;
+      const key = `${code}__${track}`;
+      if (level3Map.has(key)) return;
+      level3Map.set(key, {
+        code,
+        track,
+        name: track === 'joint' ? `${name}(联培)` : (track === 'parttime' ? `${name}(非全)` : name)
+      });
     });
 
-    const list = Array.from(level3Map.values()).sort((a, b) => a.code.localeCompare(b.code));
+    const list = Array.from(level3Map.values()).sort((a, b) => `${a.code}_${a.track}`.localeCompare(`${b.code}_${b.track}`));
 
     return list.map((item) => {
       const matchedEntries = quotaSettings.filter((quota) => {
         if (!['level1', 'level2', 'level3'].includes(quota.type)) return false;
         const quotaCode = String(quota.code || '').trim();
-        return quotaCode && item.code.startsWith(quotaCode);
+        if (!quotaCode || !item.code.startsWith(quotaCode)) return false;
+        const quotaTrack = String(quota.track || 'regular').trim();
+        return quotaTrack === studentTrack;
       });
 
       const approvedRemaining = matchedEntries.reduce((sum, quota) => {
@@ -77,11 +92,14 @@ Page({
         return sum + Math.max(maxQuota - usedQuota, 0);
       }, 0);
 
-      const isOwnMajor = studentCode && item.code === studentCode;
-      const canSelect = status === 'chosing' && isOwnMajor && approvedRemaining > 0;
+      const recruited = matchedEntries.length > 0;
+      const isOwnMajor = studentCode && item.code === studentCode && item.track === studentTrack;
+      const canSelect = status === 'chosing' && isOwnMajor && (useQuota ? approvedRemaining > 0 : recruited);
 
       return {
+        key: `${item.code}__${item.track}`,
         code: item.code,
+        track: item.track,
         name: item.name,
         approvedRemaining,
         isOwnMajor,
@@ -94,6 +112,7 @@ Page({
   selectTeacherByCategory(e) {
     const selectedCode = String(e.currentTarget.dataset.code || '').trim();
     const selectedName = String(e.currentTarget.dataset.name || '').trim();
+    const selectedTrack = String(e.currentTarget.dataset.track || 'regular').trim();
     const disabled = !!e.currentTarget.dataset.disabled;
 
     if (!selectedCode || !selectedName) {
@@ -114,7 +133,7 @@ Page({
       content: `确定申请导师 ${teacher.name} 的 ${selectedName}（${selectedCode}）名额吗？`,
       success: (res) => {
         if (res.confirm) {
-          this.submitSelection(student, teacher, selectedCode, selectedName);
+          this.submitSelection(student, teacher, selectedCode, selectedName, selectedTrack);
         }
       }
     });
@@ -133,14 +152,15 @@ Page({
     });
   },
 
-  submitSelection(student, teacher, selectedCode, selectedName) {
+  submitSelection(student, teacher, selectedCode, selectedName, selectedTrack) {
     const _ = db.command;
 
     db.collection('Stu').doc(student._id).update({
       data: {
-        preselection: [teacher.name, teacher._id,selectedName,selectedCode],
+        preselection: [teacher.name, teacher._id],
         status: 'pending',
-        selectedField: selectedCode
+        selectedField: selectedCode,
+        selectedTrack: selectedTrack
       }
     }).then(() => {
       wx.showToast({ title: '申请成功，等待导师审核', icon: 'success' });
@@ -152,6 +172,7 @@ Page({
             studentName: student.name,
             specialized: selectedName,
             specializedCode: selectedCode,
+            track: selectedTrack,
             status: 'pending',
             phoneNumber: student.phoneNumber,
             description: student.description,
