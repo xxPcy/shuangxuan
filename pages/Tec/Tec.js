@@ -130,6 +130,7 @@ Page({
         const teacherData = response.data;
         const quotaSettings = teacherData.quota_settings || [];
 
+
         // 从 quota_settings 数组生成名额信息
         // 只显示有实际名额的条目（总名额>0 或 待审批>0 或 已使用>0）
         const filteredQuotaSettings = quotaSettings.filter((quota) => {
@@ -144,6 +145,7 @@ Page({
         });
 
         const trackLabelMap = { 'joint': '【联培】', 'parttime': '【非全】' };
+
 
         const quotaInfo = sortedQuotaSettings.map((quota) => {
           const maxQuota = quota.max_quota || 0;      // 最大名额（已确认）
