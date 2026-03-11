@@ -623,23 +623,36 @@ searchTeacher() {
       if (res.data && res.data.length > 0) {
         const teacher = res.data[0];
         
-        // 从 quota_settings 中获取所有专业，显示 pending_quota（没有的显示为 0）
+        // 从 quota_settings 中获取所有专业，显示：已确认未使用 + 待审批
         let availableQuotas = [];
         if (teacher.quota_settings && Array.isArray(teacher.quota_settings)) {
-          availableQuotas = teacher.quota_settings.map(item => ({
-            code: item.code,
-            name: item.name,
-            pending_quota: item.pending_quota || 0
-          }));
+          availableQuotas = teacher.quota_settings
+            .filter(item => ['level1', 'level2', 'level3'].includes(item.type))
+            .map(item => {
+              const maxQuota = Number(item.max_quota || 0);
+              const usedQuota = Number(item.used_quota || 0);
+              const pendingQuota = Number(item.pending_quota || 0);
+              const confirmedRemaining = Math.max(maxQuota - usedQuota, 0);
+              return {
+                code: item.code,
+                name: item.name,
+                type: item.type,
+                confirmed_remaining: confirmedRemaining,
+                pending_quota: pendingQuota,
+                total_available: confirmedRemaining + pendingQuota,
+              };
+            });
           
           // 按专业代码排序：先按代码长度（一级2位、二级4位、三级6位），再按代码字母顺序
           availableQuotas.sort((a, b) => {
             // 先按代码长度排序（短的在前，即一级->二级->三级）
-            if (a.code.length !== b.code.length) {
-              return a.code.length - b.code.length;
+            const aCode = String(a.code || '');
+            const bCode = String(b.code || '');
+            if (aCode.length !== bCode.length) {
+              return aCode.length - bCode.length;
             }
             // 同级别按代码字母顺序排序
-            return a.code.localeCompare(b.code);
+            return aCode.localeCompare(bCode);
           });
         }
         
@@ -711,10 +724,11 @@ showTeacherEditPopup(event) {
             pending_quota: item.pending_quota || 0,  // 已导入指标（未确认）
             max_quota: item.max_quota || 0,
             used_quota: item.used_quota || 0,  // 已确认指标
+            confirmed_remaining: Math.max((item.max_quota || 0) - (item.used_quota || 0), 0), // 已确认未使用
             rejected_quota: rejectedQuotaMap[item.code] || 0,  // 被退回指标（来自TotalQuota）
             pendingChange: 0,  // 暂存的变更值（加的数量）
             subtractFromPending: 0,  // 从pending_quota减的数量
-            subtractFromUsed: 0  // 从used_quota减的数量
+            subtractFromConfirmed: 0  // 从已确认未使用减的数量（通过减少max_quota实现）
           }));
           
           // 按专业代码排序：先按代码长度（一级->二级->三级），再按代码字母顺序
@@ -870,18 +884,18 @@ modifyQuota(e) {
   } else if (action === 'subtract') {
     // 减少指标逻辑：
     // 1. 先从 pending_quota（未确认指标）中减
-    // 2. 如果 pending_quota 不够，再从 used_quota（已确认指标）中减
+    // 2. 如果 pending_quota 不够，再从已确认未使用名额中减
     
     // 计算当前可减的数量
     const currentPendingAvailable = (quota.pending_quota || 0) - (quota.subtractFromPending || 0);
-    const currentUsedAvailable = (quota.used_quota || 0) - (quota.subtractFromUsed || 0);
+    const currentConfirmedAvailable = (quota.confirmed_remaining || 0) - (quota.subtractFromConfirmed || 0);
     
     if (currentPendingAvailable > 0) {
       // 优先从pending_quota减
       quota.subtractFromPending = (quota.subtractFromPending || 0) + 1;
-    } else if (currentUsedAvailable > 0) {
-      // pending_quota不够，从used_quota减
-      quota.subtractFromUsed = (quota.subtractFromUsed || 0) + 1;
+    } else if (currentConfirmedAvailable > 0) {
+      // pending_quota不够，从已确认未使用减
+      quota.subtractFromConfirmed = (quota.subtractFromConfirmed || 0) + 1;
     } else {
       wx.showToast({
         title: `${quota.name}没有可减的指标`,
@@ -917,7 +931,7 @@ saveTeacherChanges() {
   const changedQuotas = editableQuotas.filter(item => 
     (item.pendingChange && item.pendingChange > 0) || 
     (item.subtractFromPending && item.subtractFromPending > 0) ||
-    (item.subtractFromUsed && item.subtractFromUsed > 0)
+    (item.subtractFromConfirmed && item.subtractFromConfirmed > 0)
   );
   
   if (changedQuotas.length === 0) {
@@ -938,7 +952,7 @@ saveTeacherChanges() {
   // 分离增加和减少的变更
   const addChanges = changedQuotas.filter(item => item.pendingChange > 0);
   const subtractChanges = changedQuotas.filter(item => 
-    (item.subtractFromPending > 0) || (item.subtractFromUsed > 0)
+    (item.subtractFromPending > 0) || (item.subtractFromConfirmed > 0)
   );
   
   // 格式化变更内容用于显示
@@ -956,8 +970,8 @@ saveTeacherChanges() {
       if (item.subtractFromPending > 0) {
         parts.push(`从未确认减${item.subtractFromPending}`);
       }
-      if (item.subtractFromUsed > 0) {
-        parts.push(`从已确认减${item.subtractFromUsed}`);
+      if (item.subtractFromConfirmed > 0) {
+        parts.push(`从已确认未使用减${item.subtractFromConfirmed}`);
       }
       return detail + parts.join('，');
     }).join('\n');
@@ -981,30 +995,30 @@ saveTeacherChanges() {
             const currentTeacher = teacherRes.data;
             const currentQuotaSettings = currentTeacher.quota_settings || [];
             
-            // 更新 quota_settings 中对应专业的 pending_quota 和 used_quota
+            // 更新 quota_settings 中对应专业的 pending_quota 和 max_quota
             const updatedQuotaSettings = currentQuotaSettings.map(setting => {
               const change = changedQuotas.find(c => c.code === setting.code);
               if (change) {
                 let newPendingQuota = setting.pending_quota || 0;
-                let newUsedQuota = setting.used_quota || 0;
+                let newMaxQuota = setting.max_quota || 0;
                 
                 // 加一：增加 pending_quota
                 if (change.pendingChange > 0) {
                   newPendingQuota += change.pendingChange;
                 }
                 
-                // 减一：先从 pending_quota 减，再从 used_quota 减
+                // 减一：先从 pending_quota 减，再从已确认未使用(max_quota - used_quota)减
                 if (change.subtractFromPending > 0) {
                   newPendingQuota -= change.subtractFromPending;
                 }
-                if (change.subtractFromUsed > 0) {
-                  newUsedQuota -= change.subtractFromUsed;
+                if (change.subtractFromConfirmed > 0) {
+                  newMaxQuota -= change.subtractFromConfirmed;
                 }
                 
                 return {
                   ...setting,
                   pending_quota: newPendingQuota,
-                  used_quota: newUsedQuota
+                  max_quota: newMaxQuota
                 };
               }
               return setting;
@@ -1057,8 +1071,8 @@ saveTeacherChanges() {
                 if (change.subtractFromPending > 0) {
                   pendingApprovalChange += change.subtractFromPending;
                 }
-                if (change.subtractFromUsed > 0) {
-                  pendingApprovalChange += change.subtractFromUsed;
+                if (change.subtractFromConfirmed > 0) {
+                  pendingApprovalChange += change.subtractFromConfirmed;
                 }
                 
                 updateData[levelKey][code] = {
@@ -2338,6 +2352,4 @@ onPullDownRefresh() {
 
 
 });
-
-
 
