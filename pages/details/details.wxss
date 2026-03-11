@@ -1,64 +1,23 @@
 /* pages/details/details.wxss */
-
-.box, .box2, .box3 ,.box4,.box5{
-  display: flex;
-  flex-wrap: wrap;           /* 使按钮自动换行 */
-  gap: 10px;                 /* 按钮之间的间距 */
-  justify-content: space-evenly; /* 让按钮均匀分布 */
-  margin: 9px 0;            /* 容器上下间距 */
-}
-#but1{
-  max-width: none;
-  width:200px;
-}
-#but2{
-  max-width: none;
-  width: 200px;
-}
-/* 设置禁用按钮的样式 */
-button:disabled {
-  background-color: #d3d3d3; /* 禁用按钮背景色 */
-  color: #a9a9a9;             /* 禁用按钮字体颜色 */
-}
-button {
-  max-width: 204px;/* //让按钮宽度自适应，填满父容器//设置按钮的宽度 */       
-  height: 40px;              /* 设定按钮的高度 */
-  display: flex;             /* 使用 Flexbox 布局来居中内容 */
-  align-items: center;       /* 垂直居中 */
-  justify-content: center;   /* 水平居中 */
-  margin: 10px 0;             /* 按钮之间的上下间距 */
-  font-size: 15px;           /* 设置字体大小 */
-  border-radius: 30px;        /* 按钮圆角 */
-  padding: 0 8px;           /* 左右内边距 */
-  flex:1;
-  border: 4rpx solid rgba(65, 175, 179, 0.74);
-}
 .mypicture{
   width: 200rpx;
   height: 200rpx;
-  border-radius: 90%; /* 可选：使图片圆形 */
+  border-radius: 90%;
 }
+
 .img-box{
   display: flex;
   justify-content: center;
 }
-.Website{
-  display: flex;
-  justify-content: center;
-}
-/* .mybutton{
-  width: 200rpx!important;
-} */
-/* 个人信息卡片样式 */
+
 .info-box {
   background-color: #f9f9f9;
   border-radius: 10px;
   padding: 20px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-  margin-bottom: 10px;
+  margin-bottom: 16px;
 }
 
-/* 标题样式 */
 .info-title {
   font-size: 20px;
   font-weight: bold;
@@ -67,28 +26,62 @@ button {
   text-align: center;
 }
 
-/* 每项信息的样式 */
 .info-item {
   margin-bottom: 15px;
 }
 
-/* 标签部分样式 */
 .info-label {
   font-size: 16px;
   color: #555;
   font-weight: 500;
 }
 
-/* 内容部分样式 */
 .info-content {
   font-size: 16px;
   color: #333;
 }
+
 .copy-content{
-  word-break: break-word;  /*  允许单词内换行 */
-  white-space: normal;     /*  让文本正常换行 */
-  overflow-wrap: break-word; /*  让长单词也能断行 */
-  color: #37587c; /* 让文本颜色变蓝，提示用户可以点击 */
-  text-decoration: underline; /* 添加下划线，增强点击感 */
-  cursor: pointer; /* 提示用户可以点击 */
+  word-break: break-word;
+  white-space: normal;
+  overflow-wrap: break-word;
+  color: #37587c;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.quota-title {
+  font-size: 30rpx;
+  color: #333;
+  font-weight: 600;
+  margin: 10rpx 8rpx 6rpx;
+}
+
+.quota-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  padding: 0 8rpx 12rpx;
+}
+
+.quota-item {
+  width: calc(50% - 6rpx);
+}
+
+.quota-btn {
+  width: 100%;
+  min-height: 78rpx;
+  border-radius: 999rpx;
+  border: 2rpx solid rgba(65, 175, 179, 0.74);
+  color: #333;
+  font-size: 26rpx;
+  line-height: 1.3;
+  padding: 10rpx 14rpx;
+  white-space: normal;
+  word-break: break-word;
+}
+
+button:disabled {
+  background-color: #d3d3d3;
+  color: #a9a9a9;
 }
