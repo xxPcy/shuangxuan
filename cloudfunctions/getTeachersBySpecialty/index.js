@@ -23,6 +23,16 @@ exports.main = async (event, context) => {
     return rawSpecializedCode.startsWith(rawTargetCode);
   };
 
+
+  const normalizedTrack = String(track || 'regular').trim();
+  const getAllowedTracks = (studentTrack) => {
+    if (studentTrack === 'parttime') return ['parttime'];
+    if (studentTrack === 'joint') return ['joint'];
+    // 普通学生可选普通或联培
+    return ['regular', 'joint'];
+  };
+  const allowedTracks = getAllowedTracks(normalizedTrack);
+
   if (!rawSpecializedCode) {
     return {
       success: false,
@@ -99,7 +109,7 @@ exports.main = async (event, context) => {
         if (!codeMatches(code)) return;
         if (useQuota) {
           const itemTrack = String(item.track || 'regular').trim();
-          if (itemTrack !== String(track || 'regular').trim()) return;
+          if (!allowedTracks.includes(itemTrack)) return;
         }
         const maxQuota = Number(item.max_quota || 0);
         const usedQuota = Number(item.used_quota || 0);
