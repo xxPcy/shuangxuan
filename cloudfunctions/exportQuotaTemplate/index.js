@@ -201,6 +201,18 @@ function calculateMerges(sheetData) {
 
     // 检测导师变化（通过ID判断）
     if (teacherId !== '' && teacherId !== prevTeacherId) {
+      // 先结束上一位导师内的一级/二级合并，避免跨导师错误合并
+      if (prevLevel2 !== null && i - 1 >= level2StartRow && i - 1 > level2StartRow) {
+        merges.push({ s: { r: level2StartRow, c: 5 }, e: { r: i - 1, c: 5 } });
+        merges.push({ s: { r: level2StartRow, c: 6 }, e: { r: i - 1, c: 6 } });
+        merges.push({ s: { r: level2StartRow, c: 7 }, e: { r: i - 1, c: 7 } });
+      }
+      if (prevLevel1 !== null && i - 1 >= level1StartRow && i - 1 > level1StartRow) {
+        merges.push({ s: { r: level1StartRow, c: 2 }, e: { r: i - 1, c: 2 } });
+        merges.push({ s: { r: level1StartRow, c: 3 }, e: { r: i - 1, c: 3 } });
+        merges.push({ s: { r: level1StartRow, c: 4 }, e: { r: i - 1, c: 4 } });
+      }
+
       // 合并之前的导师单元格
       if (prevTeacherId !== null && i - 1 >= teacherStartRow && i - 1 > teacherStartRow) {
         merges.push({ s: { r: teacherStartRow, c: 0 }, e: { r: i - 1, c: 0 } }); // 导师ID
@@ -208,6 +220,12 @@ function calculateMerges(sheetData) {
       }
       teacherStartRow = i;
       prevTeacherId = teacherId;
+
+      // 关键：导师切换时重置一级/二级状态，确保每位导师都有自己的一级栏
+      level1StartRow = i;
+      level2StartRow = i;
+      prevLevel1 = null;
+      prevLevel2 = null;
     }
 
     // 检测一级变化
