@@ -24,12 +24,25 @@ exports.main = async (event, context) => {
   };
 
 
-  const normalizedTrack = String(track || 'regular').trim();
+  const normalizeTrack = (value) => {
+    const raw = String(value || '').trim();
+    const lower = raw.toLowerCase();
+    if (!raw) return '全日制';
+    if (['regular', '普通', '全日制'].includes(lower) || raw === '普通' || raw === '全日制') return '全日制';
+    if (['joint', '联培'].includes(lower) || raw === '联培') return '联培';
+    if (['parttime', '非全', '非全日制'].includes(lower) || raw === '非全' || raw === '非全日制') return '非全日制';
+    if (['soldier', '士兵'].includes(lower) || raw === '士兵') return '士兵';
+    return raw;
+  };
+
+  const normalizedTrack = normalizeTrack(track || '全日制');
   const getAllowedTracks = (studentTrack) => {
-    if (studentTrack === 'parttime') return ['parttime'];
-    if (studentTrack === 'joint') return ['joint'];
-    // 普通学生可选普通或联培
-    return ['regular', 'joint'];
+    // 非全严格匹配非全
+    if (studentTrack === '非全日制') return ['非全日制'];
+    // 全日制可以选全日制和联培（按业务规则）
+    if (studentTrack === '全日制') return ['全日制', '联培'];
+    // 其余类型默认严格同类型
+    return [studentTrack];
   };
   const allowedTracks = getAllowedTracks(normalizedTrack);
 
@@ -51,7 +64,7 @@ exports.main = async (event, context) => {
     }).limit(100).get();
 
     (logicRowsRes.data || []).forEach((row) => {
-      const rowTrack = String(row.track || 'regular').trim();
+      const rowTrack = normalizeTrack(row.track || '全日制');
       if (!allowedCodesByTrack.has(rowTrack)) {
         allowedCodesByTrack.set(rowTrack, new Set());
       }
@@ -141,7 +154,7 @@ exports.main = async (event, context) => {
         const code = String(item.code || '').trim();
         if (!codeMatches(code)) return;
         if (useQuota) {
-          const itemTrack = String(item.track || 'regular').trim();
+          const itemTrack = normalizeTrack(item.track || '全日制');
           if (!allowedTracks.includes(itemTrack)) return;
           const allowedCodeSet = allowedCodesByTrack.get(itemTrack);
           // 该 track 未在 Logic 给当前三级专业配置，或 code 不在该 track 的专业链路里，直接跳过

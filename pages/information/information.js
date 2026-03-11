@@ -15,7 +15,7 @@ Page({
     stu_id:'',//学生的_id
     specializedCode: '', // 学生三级专业代码
     useQuota: false, // 是否占用指标（true:占用，false:不占用）
-    track: 'regular', // 赛道：regular/joint/parttime
+    track: '全日制', // 类型：由 Logic 表导入
   },
 
   // 加载公告
@@ -84,7 +84,7 @@ viewAnnouncement(event) {
       category:data.specialized,
       specializedCode: specializedCode,
       useQuota: !!data.useQuota,
-      track: data.track || 'regular',
+      track: data.track || '全日制',
     }, () => {
       this.loadTeachers(); // 加载导师数据
     });
@@ -98,6 +98,7 @@ viewAnnouncement(event) {
     
     const that = this;
     const { specializedCode, page, pageSize, useQuota, track } = this.data;
+    const allowedTracks = this.getAllowedTracksByStudentTrack(track);
     
     console.log("loadTeachers - 三级专业代码:", specializedCode);
     
@@ -187,10 +188,29 @@ viewAnnouncement(event) {
     return sourceRaw.startsWith(targetRaw);
   },
 
+  normalizeTrackValue(value) {
+    const raw = String(value || '').trim();
+    const lower = raw.toLowerCase();
+    if (!raw) return '全日制';
+    if (['regular', '普通', '全日制'].includes(lower) || raw === '普通' || raw === '全日制') return '全日制';
+    if (['joint', '联培'].includes(lower) || raw === '联培') return '联培';
+    if (['parttime', '非全', '非全日制'].includes(lower) || raw === '非全' || raw === '非全日制') return '非全日制';
+    if (['soldier', '士兵'].includes(lower) || raw === '士兵') return '士兵';
+    return raw;
+  },
+
+  getAllowedTracksByStudentTrack(track) {
+    const t = this.normalizeTrackValue(track);
+    if (t === '非全日制') return ['非全日制'];
+    if (t === '全日制') return ['全日制', '联培'];
+    return [t];
+  },
+
   // 本地兜底：直接读取 Teacher.quota_settings 计算可见导师，避免云函数未同步导致漏显示
   loadTeachersByQuotaSettingsDirect() {
     const db = wx.cloud.database();
     const { specializedCode, page, pageSize, useQuota, track } = this.data;
+    const allowedTracks = this.getAllowedTracksByStudentTrack(track);
 
     if (!specializedCode) {
       wx.hideLoading();
@@ -250,8 +270,8 @@ viewAnnouncement(event) {
           const code = String(item.code || '').trim();
           if (!this.codeMatches(specializedCode, code)) return;
           if (useQuota) {
-            const itemTrack = String(item.track || 'regular').trim();
-            if (itemTrack !== String(track || 'regular').trim()) return;
+            const itemTrack = this.normalizeTrackValue(item.track || '全日制');
+            if (!allowedTracks.includes(itemTrack)) return;
           }
           const maxQuota = Number(item.max_quota || 0);
           const usedQuota = Number(item.used_quota || 0);

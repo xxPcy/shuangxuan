@@ -216,11 +216,15 @@ exports.main = async (event, context) => {
 
       const rawType = String(row[6] || '').trim();
       const normalizeTrack = (value) => {
-        const text = String(value || '').trim().toLowerCase();
-        if (text === 'regular' || text === '普通') return 'regular';
-        if (text === 'joint' || text === '联培') return 'joint';
-        if (text === 'parttime' || text === '非全日制' || text === '非全') return 'parttime';
-        return 'regular';
+        const raw = String(value || '').trim();
+        const text = raw.toLowerCase();
+        if (!raw) return '全日制';
+        if (['regular', '普通', '全日制'].includes(text) || raw === '普通' || raw === '全日制') return '全日制';
+        if (['joint', '联培'].includes(text) || raw === '联培') return '联培';
+        if (['parttime', '非全日制', '非全'].includes(text) || raw === '非全日制' || raw === '非全') return '非全日制';
+        if (['soldier', '士兵'].includes(text) || raw === '士兵') return '士兵';
+        // 允许扩展类型：保留用户在 Logic 表填写的原值
+        return raw;
       };
       const track = normalizeTrack(rawType);
 

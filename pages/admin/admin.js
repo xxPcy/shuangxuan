@@ -709,11 +709,11 @@ showTeacherEditPopup(event) {
         const [codeFromKey, trackFromKey] = String(rawKey || '').split('__');
         const code = String(item.code || codeFromKey || '').trim();
         if (!code) return;
-        const track = String(item.track || trackFromKey || 'regular').trim();
+        const track = String(item.track || trackFromKey || '全日制').trim();
             const normalizedItem = { ...item, code, track };
             const key = this.getQuotaUiKey(normalizedItem);
             rejectedQuotaMap[key] = item.pending_approval || 0;
-            if (track === 'regular') rejectedQuotaMap[code] = item.pending_approval || 0;
+            if (track === '全日制' || String(track).toLowerCase() === 'regular') rejectedQuotaMap[code] = item.pending_approval || 0;
           });
         }
         // 处理二级专业
@@ -723,11 +723,11 @@ showTeacherEditPopup(event) {
         const [codeFromKey, trackFromKey] = String(rawKey || '').split('__');
         const code = String(item.code || codeFromKey || '').trim();
         if (!code) return;
-        const track = String(item.track || trackFromKey || 'regular').trim();
+        const track = String(item.track || trackFromKey || '全日制').trim();
             const normalizedItem = { ...item, code, track };
             const key = this.getQuotaUiKey(normalizedItem);
             rejectedQuotaMap[key] = item.pending_approval || 0;
-            if (track === 'regular') rejectedQuotaMap[code] = item.pending_approval || 0;
+            if (track === '全日制' || String(track).toLowerCase() === 'regular') rejectedQuotaMap[code] = item.pending_approval || 0;
           });
         }
         // 处理三级专业
@@ -737,11 +737,11 @@ showTeacherEditPopup(event) {
         const [codeFromKey, trackFromKey] = String(rawKey || '').split('__');
         const code = String(item.code || codeFromKey || '').trim();
         if (!code) return;
-        const track = String(item.track || trackFromKey || 'regular').trim();
+        const track = String(item.track || trackFromKey || '全日制').trim();
             const normalizedItem = { ...item, code, track };
             const key = this.getQuotaUiKey(normalizedItem);
             rejectedQuotaMap[key] = item.pending_approval || 0;
-            if (track === 'regular') rejectedQuotaMap[code] = item.pending_approval || 0;
+            if (track === '全日制' || String(track).toLowerCase() === 'regular') rejectedQuotaMap[code] = item.pending_approval || 0;
           });
         }
         
@@ -750,7 +750,7 @@ showTeacherEditPopup(event) {
         if (teacher.quota_settings && Array.isArray(teacher.quota_settings)) {
           editableQuotas = teacher.quota_settings.map(item => {
             const uiKey = this.getQuotaUiKey(item);
-            const track = String(item.track || 'regular').trim();
+            const track = String(item.track || '全日制').trim();
             return {
               code: item.code,
               track,
@@ -775,7 +775,7 @@ showTeacherEditPopup(event) {
             }
             const codeCmp = a.code.localeCompare(b.code);
             if (codeCmp !== 0) return codeCmp;
-            return String(a.track || 'regular').localeCompare(String(b.track || 'regular'));
+            return String(a.track || '全日制').localeCompare(String(b.track || '全日制'));
           });
         }
         
@@ -1036,7 +1036,7 @@ saveTeacherChanges() {
             
             // 更新 quota_settings 中对应专业的 pending_quota 和 max_quota
             const updatedQuotaSettings = currentQuotaSettings.map(setting => {
-              const settingKey = `${String(setting.code || '').trim()}__${String(setting.track || 'regular').trim()}`;
+              const settingKey = `${String(setting.code || '').trim()}__${String(setting.track || '全日制').trim()}`;
               const change = changedQuotas.find(c => c.uiKey === settingKey);
               if (change) {
                 let newPendingQuota = setting.pending_quota || 0;
@@ -1084,7 +1084,7 @@ saveTeacherChanges() {
             // 根据代码长度判断是哪个级别
             changedQuotas.forEach(change => {
               const code = change.code;
-              const track = String(change.track || 'regular').trim();
+              const track = String(change.track || '全日制').trim();
               let levelKey;
               if (code.length <= 2) {
                 levelKey = 'level1_quota';
@@ -2021,7 +2021,7 @@ loadQuotaData() {
         const [codeFromKey, trackFromKey] = String(rawKey || '').split('__');
         const code = String(item.code || codeFromKey || '').trim();
         if (!code) return;
-        const track = String(item.track || trackFromKey || 'regular').trim();
+        const track = String(item.track || trackFromKey || '全日制').trim();
         list.push({
           code,
           name: item.name,
@@ -2040,7 +2040,7 @@ loadQuotaData() {
         const [codeFromKey, trackFromKey] = String(rawKey || '').split('__');
         const code = String(item.code || codeFromKey || '').trim();
         if (!code) return;
-        const track = String(item.track || trackFromKey || 'regular').trim();
+        const track = String(item.track || trackFromKey || '全日制').trim();
         list.push({
           code,
           name: item.name,
@@ -2059,7 +2059,7 @@ loadQuotaData() {
         const [codeFromKey, trackFromKey] = String(rawKey || '').split('__');
         const code = String(item.code || codeFromKey || '').trim();
         if (!code) return;
-        const track = String(item.track || trackFromKey || 'regular').trim();
+        const track = String(item.track || trackFromKey || '全日制').trim();
         list.push({
           code,
           name: item.name,
@@ -2074,7 +2074,7 @@ loadQuotaData() {
     // 同码同层级聚合去重（避免监控面板重复显示）
     const mergedMap = new Map();
     list.forEach((item) => {
-      const key = `${item.type}__${item.code}__${String(item.track || 'regular')}`;
+      const key = `${item.type}__${item.code}__${String(item.track || '全日制')}`;
       if (!mergedMap.has(key)) {
         mergedMap.set(key, {
           ...item,
@@ -2107,7 +2107,7 @@ processTreeData(list) {
   list.sort((a, b) => {
     const codeCmp = String(a.code || '').localeCompare(String(b.code || ''));
     if (codeCmp !== 0) return codeCmp;
-    return String(a.track || 'regular').localeCompare(String(b.track || 'regular'));
+    return String(a.track || '全日制').localeCompare(String(b.track || '全日制'));
   });
 
   return list.map((item, index) => {
@@ -2187,14 +2187,17 @@ toggleRow(e) {
 
 
 getTrackText(track) {
-  const t = String(track || 'regular').trim();
-  if (t === 'joint') return '联培';
-  if (t === 'parttime') return '非全日制';
-  return '普通';
+  const t = String(track || '全日制').trim();
+  const lower = t.toLowerCase();
+  if (t === '联培' || lower === 'joint') return '联培';
+  if (t === '非全日制' || t === '非全' || lower === 'parttime') return '非全日制';
+  if (t === '士兵' || lower === 'soldier') return '士兵';
+  if (t === '全日制' || t === '普通' || lower === 'regular') return '全日制';
+  return t;
 },
 
 getQuotaUiKey(item = {}) {
-  return `${String(item.code || '').trim()}__${String(item.track || 'regular').trim()}`;
+  return `${String(item.code || '').trim()}__${String(item.track || '全日制').trim()}`;
 },
 
 // 前端调用云函数清空系统

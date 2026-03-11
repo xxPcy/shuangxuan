@@ -140,8 +140,8 @@ Page({
               const pending = Number(item.pending_quota || 0);
               return {
                 key: item.code,
-                track: String(item.track || 'regular').trim(),
-                uiKey: `${String(item.code)}__${String(item.track || 'regular').trim()}`,
+                track: String(item.track || '全日制').trim(),
+                uiKey: `${String(item.code)}__${String(item.track || '全日制').trim()}`,
                 label: item.name || item.code,
                 level: typeText[item.type] || item.type,
                 levelOrder: orderMap[item.type] || 99,
@@ -159,15 +159,16 @@ Page({
           // 若逻辑表里有该 code 的标准名称，则覆盖显示（避免历史名称不统一）
           const logicNameMap = {};
           logicRows.forEach((row) => {
-            const track = String(row.track || 'regular').trim();
+            const track = String(row.track || '全日制').trim();
             if (row.level1_code) logicNameMap[`${String(row.level1_code)}__${track}`] = row.level1_name;
             if (row.level2_code) logicNameMap[`${String(row.level2_code)}__${track}`] = row.level2_name;
             if (row.level3_code) logicNameMap[`${String(row.level3_code)}__${track}`] = row.level3_name;
           });
           quotaInfo = quotaInfo.map((item) => {
-            const track = String(item.track || 'regular').trim();
+            const track = String(item.track || '全日制').trim();
             const lookupKey = `${String(item.key)}__${track}`;
-            const trackText = track === 'joint' ? '联培' : (track === 'parttime' ? '非全' : '普通');
+            const lower = String(track || '').toLowerCase();
+            const trackText = (track === '联培' || lower === 'joint') ? '联培' : ((track === '非全日制' || track === '非全' || lower === 'parttime') ? '非全日制' : ((track === '士兵' || lower === 'soldier') ? '士兵' : (track || '全日制')));
             const baseLabel = logicNameMap[lookupKey] || item.label;
             return {
               ...item,
@@ -276,7 +277,7 @@ Page({
         if (res.result.success) {
           const pendingChanges = (res.result.pendingChanges || []).map((item) => ({
             ...item,
-            uiKey: item.key || `${item.code || ''}__${item.track || 'regular'}`
+            uiKey: item.key || `${item.code || ''}__${item.track || '全日制'}`
           }));
           console.log('当前导师的待审批数据:', pendingChanges);
           this.setData({
@@ -529,7 +530,7 @@ Page({
 
     const resolvedKey = pendingChange.key || type;
     const resolvedType = pendingChange.code || (String(resolvedKey || '').split('__')[0]);
-    const resolvedTrack = pendingChange.track || (String(resolvedKey || '').split('__')[1]) || 'regular';
+    const resolvedTrack = pendingChange.track || (String(resolvedKey || '').split('__')[1]) || '全日制';
     if (resolvedType === undefined || resolvedType === null || String(resolvedType) === '') {
       wx.showToast({ title: '未找到名额类型，请刷新', icon: 'none' });
       return;
@@ -573,7 +574,7 @@ Page({
             return;
           }
 
-          const quotaIndex = teacher.quota_settings.findIndex((item) => String(item.code) === String(resolvedType) && String(item.track || 'regular') === String(resolvedTrack || 'regular'));
+          const quotaIndex = teacher.quota_settings.findIndex((item) => String(item.code) === String(resolvedType) && String(item.track || '全日制') === String(resolvedTrack || '全日制'));
           if (quotaIndex < 0) {
             wx.showToast({ title: '未找到待审批名额项(按code)', icon: 'none' });
             return;

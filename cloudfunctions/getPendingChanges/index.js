@@ -33,8 +33,9 @@ exports.main = async (event, context) => {
         if (remainingTimeMs > 0) {
           const remainingHours = Math.floor(remainingTimeMs / (60 * 60 * 1000));
           const remainingMinutes = Math.floor((remainingTimeMs % (60 * 60 * 1000)) / (60 * 1000));
-          const track = String(item.track || 'regular').trim();
-          const trackText = track === 'joint' ? '联培' : (track === 'parttime' ? '非全' : '普通');
+          const track = String(item.track || '全日制').trim();
+          const lower = track.toLowerCase();
+          const trackText = (track === '联培' || lower === 'joint') ? '联培' : ((track === '非全日制' || track === '非全' || lower === 'parttime') ? '非全日制' : ((track === '士兵' || lower === 'soldier') ? '士兵' : track));
           const label = item.name || item.code;
           pendingChanges.push({
             label: `${label}（${trackText}）`,

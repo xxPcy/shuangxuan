@@ -9,7 +9,7 @@ Page({
     teacherID: '',
     quotaButtons: [],
     useQuota: true,
-    studentTrack: 'regular'
+    studentTrack: '全日制'
   },
 
   onLoad(options) {
@@ -39,7 +39,7 @@ Page({
         StuID: student.Id || '',
         teacher,
         useQuota: !!student.useQuota,
-        studentTrack: student.track || 'regular'
+        studentTrack: student.track || '全日制'
       });
 
       const quotaButtons = this.buildQuotaButtons(logicRows, teacher, student, status);
@@ -54,17 +54,36 @@ Page({
     });
   },
 
+  normalizeTrackValue(value) {
+    const raw = String(value || '').trim();
+    const lower = raw.toLowerCase();
+    if (!raw) return '全日制';
+    if (['regular', '普通', '全日制'].includes(lower) || raw === '普通' || raw === '全日制') return '全日制';
+    if (['joint', '联培'].includes(lower) || raw === '联培') return '联培';
+    if (['parttime', '非全', '非全日制'].includes(lower) || raw === '非全' || raw === '非全日制') return '非全日制';
+    if (['soldier', '士兵'].includes(lower) || raw === '士兵') return '士兵';
+    return raw;
+  },
+
+  getAllowedTracksByStudentTrack(track) {
+    const t = this.normalizeTrackValue(track);
+    if (t === '非全日制') return ['非全日制'];
+    if (t === '全日制') return ['全日制', '联培'];
+    return [t];
+  },
+
   buildQuotaButtons(logicRows, teacher, student, status) {
     const quotaSettings = Array.isArray(teacher.quota_settings) ? teacher.quota_settings : [];
     const studentCode = String(student.specializedCode || student.level3_code || '').trim();
-    const studentTrack = String(student.track || 'regular').trim();
+    const studentTrack = this.normalizeTrackValue(student.track || '全日制');
+    const allowedTracks = this.getAllowedTracksByStudentTrack(studentTrack);
     const useQuota = !!student.useQuota;
 
     const level3Map = new Map();
     logicRows.forEach((row) => {
       const code = String(row.level3_code || '').trim();
       const name = String(row.level3_name || '').trim();
-      const track = String(row.track || 'regular').trim();
+      const track = this.normalizeTrackValue(row.track || '全日制');
       if (!code || !name) return;
       const key = `${code}__${track}`;
       if (level3Map.has(key)) return;
@@ -82,8 +101,8 @@ Page({
         if (!['level1', 'level2', 'level3'].includes(quota.type)) return false;
         const quotaCode = String(quota.code || '').trim();
         if (!quotaCode || !item.code.startsWith(quotaCode)) return false;
-        const quotaTrack = String(quota.track || 'regular').trim();
-        return quotaTrack === studentTrack;
+        const quotaTrack = this.normalizeTrackValue(quota.track || '全日制');
+        return quotaTrack === item.track;
       });
 
       const approvedRemaining = matchedEntries.reduce((sum, quota) => {
@@ -93,7 +112,7 @@ Page({
       }, 0);
 
       const recruited = matchedEntries.length > 0;
-      const isOwnMajor = studentCode && item.code === studentCode && item.track === studentTrack;
+      const isOwnMajor = studentCode && item.code === studentCode && allowedTracks.includes(item.track);
       const canSelect = status === 'chosing' && isOwnMajor && (useQuota ? approvedRemaining > 0 : recruited);
 
       return {
@@ -112,7 +131,7 @@ Page({
   selectTeacherByCategory(e) {
     const selectedCode = String(e.currentTarget.dataset.code || '').trim();
     const selectedName = String(e.currentTarget.dataset.name || '').trim();
-    const selectedTrack = String(e.currentTarget.dataset.track || 'regular').trim();
+    const selectedTrack = this.normalizeTrackValue(e.currentTarget.dataset.track || '全日制');
     const disabled = !!e.currentTarget.dataset.disabled;
 
     if (!selectedCode || !selectedName) {
