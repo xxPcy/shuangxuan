@@ -2014,8 +2014,28 @@ loadQuotaData() {
       });
     }
     
+    // 同码同层级聚合去重（避免监控面板重复显示）
+    const mergedMap = new Map();
+    list.forEach((item) => {
+      const key = `${item.type}__${item.code}`;
+      if (!mergedMap.has(key)) {
+        mergedMap.set(key, {
+          ...item,
+          max_total: Number(item.max_total || 0),
+          pending_total: Number(item.pending_total || 0)
+        });
+        return;
+      }
+      const current = mergedMap.get(key);
+      current.max_total += Number(item.max_total || 0);
+      current.pending_total += Number(item.pending_total || 0);
+      if (!current.name && item.name) current.name = item.name;
+      mergedMap.set(key, current);
+    });
+
     // 拿到数据后，进行前端处理（计算层级、父子关系）
-    const processed = this.processTreeData(list);
+    const dedupedList = Array.from(mergedMap.values());
+    const processed = this.processTreeData(dedupedList);
     this.setData({ quotaTreeList: processed });
   }).catch(err => {
     wx.hideLoading();
