@@ -263,6 +263,7 @@
   <button bind:tap="logic">导入逻辑表</button>
   <button bindtap="showPopup">查看退回记录</button>
   <button bindtap="outPutexample">导出《新增指标》模板</button>
+  <button bindtap="showAdminPasswordPopup">修改登录密码</button>
     <!-- 弹窗 -->
   <view class="popup" wx:if="{{showPopupFlag}}">
     <view class="popup-content">
@@ -277,6 +278,29 @@
     </view>
   </view>
 
+  </view>
+
+  <!-- 修改管理员密码弹窗 -->
+  <view wx:if="{{showAdminPasswordDialog}}" class="dialog-overlay">
+    <view class="modal-header">
+      <text>修改登录密码</text>
+      <button class="close-btn" bindtap="closeAdminPasswordPopup">×</button>
+    </view>
+    <view class="dialog-content">
+      <view class="form-item">
+        <text class="label">原密码：</text>
+        <input type="password" bindinput="onAdminOldPasswordInput" placeholder="请输入原密码" value="{{adminOldPassword}}" />
+      </view>
+      <view class="form-item">
+        <text class="label">新密码：</text>
+        <input type="password" bindinput="onAdminNewPasswordInput" placeholder="请输入新密码" value="{{adminNewPassword}}" />
+      </view>
+      <view class="form-item">
+        <text class="label">确认新密码：</text>
+        <input type="password" bindinput="onAdminConfirmPasswordInput" placeholder="请再次输入新密码" value="{{adminConfirmPassword}}" />
+      </view>
+      <button class="ConfirmReset" bindtap="submitAdminPassword">确认修改</button>
+    </view>
   </view>
 
 </view>
