@@ -47,7 +47,13 @@ Page({
 
     ],
     quotaList: [], // 招生名额列表
-    quotaChanges: {} // 保存调整的变更值
+    quotaChanges: {}, // 保存调整的变更值
+    // 管理员密码修改相关
+    adminInfo: null, // 管理员信息
+    showAdminPasswordDialog: false, // 控制修改密码弹窗显示
+    adminOldPassword: '', // 原密码输入
+    adminNewPassword: '', // 新密码输入
+    adminConfirmPassword: '' // 确认新密码输入
   },
 
   onLoad() {
@@ -2357,6 +2363,130 @@ logic() {
   },
 
 
+
+  // ========== 管理员密码修改功能 ==========
+  // 显示修改管理员密码弹窗
+  showAdminPasswordPopup: function() {
+    this.setData({
+      showAdminPasswordDialog: true,
+      adminOldPassword: '',
+      adminNewPassword: '',
+      adminConfirmPassword: ''
+    });
+  },
+
+  // 关闭修改管理员密码弹窗
+  closeAdminPasswordPopup: function() {
+    this.setData({
+      showAdminPasswordDialog: false,
+      adminOldPassword: '',
+      adminNewPassword: '',
+      adminConfirmPassword: ''
+    });
+  },
+
+  // 输入原密码
+  onAdminOldPasswordInput: function(e) {
+    this.setData({
+      adminOldPassword: e.detail.value
+    });
+  },
+
+  // 输入新密码
+  onAdminNewPasswordInput: function(e) {
+    this.setData({
+      adminNewPassword: e.detail.value
+    });
+  },
+
+  // 输入确认新密码
+  onAdminConfirmPasswordInput: function(e) {
+    this.setData({
+      adminConfirmPassword: e.detail.value
+    });
+  },
+
+  // 提交修改管理员密码
+  submitAdminPassword: function() {
+    const { adminOldPassword, adminNewPassword, adminConfirmPassword } = this.data;
+
+    // 验证输入
+    if (!adminOldPassword || !adminNewPassword || !adminConfirmPassword) {
+      wx.showToast({
+        title: '请填写所有密码字段',
+        icon: 'none',
+        duration: 2000
+      });
+      return;
+    }
+
+    if (adminNewPassword !== adminConfirmPassword) {
+      wx.showToast({
+        title: '两次输入的新密码不一致',
+        icon: 'none',
+        duration: 2000
+      });
+      return;
+    }
+
+    wx.showLoading({
+      title: '验证中...',
+    });
+
+    // 查询管理员账户验证原密码
+    db.collection('Administrator').where({
+      Password: adminOldPassword
+    }).get().then(res => {
+      if (res.data.length === 0) {
+        wx.hideLoading();
+        wx.showToast({
+          title: '原密码错误，请重新输入',
+          icon: 'none',
+          duration: 2000
+        });
+        return;
+      }
+
+      const adminDoc = res.data[0];
+      console.log(adminDoc.Id)
+      // 更新密码
+      db.collection('Administrator').doc(adminDoc._id).update({
+        data: {
+          Password: adminNewPassword
+        }
+      }).then(() => {
+        wx.hideLoading();
+        console.log("修改的密码",adminNewPassword)
+        wx.showToast({
+          title: '密码修改成功',
+          icon: 'success',
+          duration: 2000
+        });
+        this.setData({
+          showAdminPasswordDialog: false,
+          adminOldPassword: '',
+          adminNewPassword: '',
+          adminConfirmPassword: ''
+        });
+      }).catch(err => {
+        wx.hideLoading();
+        console.error('密码更新失败', err);
+        wx.showToast({
+          title: '密码修改失败，请稍后再试',
+          icon: 'none',
+          duration: 2000
+        });
+      });
+    }).catch(err => {
+      wx.hideLoading();
+      console.error('查询管理员失败', err);
+      wx.showToast({
+        title: '系统错误，请稍后再试',
+        icon: 'none',
+        duration: 2000
+      });
+    });
+  },
 
   // 下拉刷新事件
 onPullDownRefresh() {
