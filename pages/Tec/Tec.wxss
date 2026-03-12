@@ -203,6 +203,31 @@ page {
   text-align: center;
 }
 
+.track-section {
+  margin-bottom: 16rpx;
+}
+
+.track-header {
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border-radius: 12rpx;
+  padding: 18rpx 20rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.08);
+}
+
+.track-arrow {
+  margin-right: 12rpx;
+  color: #666;
+  font-size: 24rpx;
+}
+
+.track-title {
+  font-weight: bold;
+  font-size: 30rpx;
+  color: #333;
+}
+
 .accept{
   background-color: #4CAF50;
   color: #f3f4f6;

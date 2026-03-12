@@ -36,14 +36,25 @@
 <!-- 招生名额信息 -->
 <view class="quota-section">
   <text class="title">招生名额信息</text>
-  <block wx:for="{{quotaInfo}}" wx:key="uiKey">
-    <view class="quota-item">
-      <text>[{{item.level}}] {{item.key}} {{item.label}}:</text>
-      <view>
-        <text >总名额: <text style="font-weight: bold;">{{item.total}}</text></text>
-        <text>已使用: <text style="font-weight: bold;">{{item.used}}</text></text>
-        <text>剩余: <text style="font-weight: bold;">{{item.remaining}}</text></text>
-        <text wx:if="{{item.pending > 0}}">待审批: <text style="font-weight: bold;">{{item.pending}}</text></text>
+  <block wx:for="{{quotaTrackSections}}" wx:key="track">
+    <view class="track-section">
+      <view class="track-header" bindtap="toggleTrackSection" data-track="{{item.track}}">
+        <text class="track-arrow">{{item.expanded ? '▼' : '▶'}}</text>
+        <text class="track-title">{{item.track}}</text>
+      </view>
+
+      <view wx:if="{{item.expanded}}">
+        <block wx:for="{{item.items}}" wx:key="uiKey">
+          <view class="quota-item">
+            <text>[{{item.level}}] {{item.key}} {{item.label}}:</text>
+            <view>
+              <text >总名额: <text style="font-weight: bold;">{{item.total}}</text></text>
+              <text>已使用: <text style="font-weight: bold;">{{item.used}}</text></text>
+              <text>剩余: <text style="font-weight: bold;">{{item.remaining}}</text></text>
+              <text wx:if="{{item.pending > 0}}">待审批: <text style="font-weight: bold;">{{item.pending}}</text></text>
+            </view>
+          </view>
+        </block>
       </view>
     </view>
   </block>
