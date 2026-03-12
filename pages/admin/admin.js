@@ -2058,16 +2058,21 @@ loadQuotaData() {
       if (!code) return '';
       if (!expectedLength) return code;
 
-      // Excel 数值单元格会吞掉前导 0，尽量按层级信息修复
-      if (/^\d+$/.test(code)) {
-        if (expectedPrefix && !code.startsWith(expectedPrefix)) {
-          const missingLen = expectedLength - expectedPrefix.length;
-          if (missingLen > 0 && code.length <= missingLen) {
-            return `${expectedPrefix}${code.padStart(missingLen, '0')}`;
-          }
-        }
-        if (code.length < expectedLength) {
-          code = code.padStart(expectedLength, '0');
+      // Excel 可能把代码读成数字/小数，先做基础清洗
+      code = code.replace(/\.0+$/, '');
+      if (!/^\d+$/.test(code)) return code;
+
+      if (code.length < expectedLength) {
+        code = code.padStart(expectedLength, '0');
+      }
+
+      // 如果修复后仍不满足父级前缀，则按父级重建后缀，避免 root+track 分组错位
+      if (expectedPrefix) {
+        const prefix = String(expectedPrefix || '').trim();
+        const suffixLen = Math.max(expectedLength - prefix.length, 0);
+        if (prefix && !code.startsWith(prefix) && suffixLen > 0) {
+          const suffix = code.slice(-suffixLen).padStart(suffixLen, '0');
+          code = `${prefix}${suffix}`;
         }
       }
 
