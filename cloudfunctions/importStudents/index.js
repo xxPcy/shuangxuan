@@ -35,6 +35,24 @@
 
 //     // 跳过标题行，从第二行开始读取数据并存储到数据库
 //     const tasks = [];
+
+    const normalizeType = (value) => {
+      const raw = String(value || '').trim();
+      const lower = raw.toLowerCase();
+      if (!raw) return '全日制';
+      if (['regular', '普通', '全日制'].includes(lower) || ['普通', '全日制'].includes(raw)) return '全日制';
+      if (['joint', '联培'].includes(lower) || raw === '联培') return '联培';
+      if (['parttime', '非全', '非全日制'].includes(lower) || ['非全', '非全日制'].includes(raw)) return '非全日制';
+      if (['soldier', '士兵'].includes(lower) || raw === '士兵') return '士兵';
+      return raw;
+    };
+
+    const resolveUseQuota = (track) => {
+      const text = String(track || '').trim();
+      // 默认非全不占指标，其余类型占指标（兼容历史 useQuota 字段）
+      return text !== '非全日制' && text !== 'parttime';
+    };
+
 //     for (let i = 1; i < sheetData.length; i++) { // 从索引 1 开始跳过标题行
 //       const [name, Id, Password, Bigtype, specialized] = sheetData[i];
       
@@ -131,13 +149,32 @@ exports.main = async (event, context) => {
     const existingIds = existingStudentsQuery.data.map(student => student.Id);
 
     const tasks = [];
+
+    const normalizeType = (value) => {
+      const raw = String(value || '').trim();
+      const lower = raw.toLowerCase();
+      if (!raw) return '全日制';
+      if (['regular', '普通', '全日制'].includes(lower) || ['普通', '全日制'].includes(raw)) return '全日制';
+      if (['joint', '联培'].includes(lower) || raw === '联培') return '联培';
+      if (['parttime', '非全', '非全日制'].includes(lower) || ['非全', '非全日制'].includes(raw)) return '非全日制';
+      if (['soldier', '士兵'].includes(lower) || raw === '士兵') return '士兵';
+      return raw;
+    };
+
+    const resolveUseQuota = (track) => {
+      const text = String(track || '').trim();
+      // 默认非全不占指标，其余类型占指标（兼容历史 useQuota 字段）
+      return text !== '非全日制' && text !== 'parttime';
+    };
+
     const existingStudents = []; // 用于存储已存在学生的名字和Id
     const unmatchedStudents = []; // 用于存储专业代码匹配失败的学生
 
     // 跳过标题行，从第二行开始读取数据并存储到数据库
-    // Excel列顺序: 学生姓名(name), 账号(Id), 密码(Password), 类别(Bigtype), 专业(specialized), 专业代码, 学制, 是否占用指标
+    // Excel列顺序（新）：学生姓名(name), 账号(Id), 密码(Password), 类别(Bigtype), 专业(specialized), 专业代码, 类型
+    // 兼容旧版：... , 学制, 是否占用指标
     for (let i = 1; i < sheetData.length; i++) { // 从索引 1 开始跳过标题行
-      const [name, Id, Password, Bigtype, specialized, specializedCode, studySystem, useQuota] = sheetData[i];
+      const [name, Id, Password, Bigtype, specialized, specializedCode, col6, col7] = sheetData[i];
 
       if (name && Id && Password && Bigtype && specialized) {
         if (existingIds.includes(String(Id))) {
@@ -148,6 +185,7 @@ exports.main = async (event, context) => {
           const logicInfo = logicMap[codeStr];
 
           // 构建学生数据
+          const typeText = normalizeType(col7 === undefined ? col6 : col7);
           const studentData = {
             name: String(name).trim(),
             Id: String(Id).trim(),
@@ -155,8 +193,10 @@ exports.main = async (event, context) => {
             Bigtype: String(Bigtype).trim(),
             specialized: String(specialized).trim(),
             specializedCode: codeStr, // 三级专业代码
-            studySystem: String(studySystem || '').trim(), // 学制
-            useQuota: String(useQuota || '').trim() === '是', // 是否占用指标，"是"为true，其他为false
+            studySystem: '',
+            useQuota: resolveUseQuota(typeText),
+            track: typeText,
+            type: typeText,
             ...defaultFields // 自动填充默认字段
           };
 
