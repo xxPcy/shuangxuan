@@ -2110,12 +2110,35 @@ loadQuotaData() {
 
 // 2. 前端处理：添加折叠控制字段
 processTreeData(list) {
-  // 先按类型(track)分组，再按代码层级排序，避免不同类型混在一起
+  // 排序：先按一级代码(学科门类)分组，再按类型(track)分组，最后按层级展开，避免不同门类/类型混在一起
+  const trackOrder = {
+    '全日制': 1,
+    '联培': 2,
+    '非全日制': 3,
+    '士兵': 4
+  };
+  const getRootCode = (item) => {
+    const code = String((item && item.code) || '');
+    if (String(item.type || '') === 'level1') return code;
+    return code.slice(0, 2);
+  };
+
   list.sort((a, b) => {
-    const trackCmp = String(a.track || '全日制').localeCompare(String(b.track || '全日制'));
+    const rootCmp = getRootCode(a).localeCompare(getRootCode(b));
+    if (rootCmp !== 0) return rootCmp;
+
+    const aTrack = String(a.track || '全日制');
+    const bTrack = String(b.track || '全日制');
+    const aTrackRank = trackOrder[aTrack] || 99;
+    const bTrackRank = trackOrder[bTrack] || 99;
+    if (aTrackRank !== bTrackRank) return aTrackRank - bTrackRank;
+
+    const trackCmp = aTrack.localeCompare(bTrack);
     if (trackCmp !== 0) return trackCmp;
+
     const lenCmp = String(a.code || '').length - String(b.code || '').length;
     if (lenCmp !== 0) return lenCmp;
+
     return String(a.code || '').localeCompare(String(b.code || ''));
   });
 
