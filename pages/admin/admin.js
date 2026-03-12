@@ -623,23 +623,36 @@ searchTeacher() {
       if (res.data && res.data.length > 0) {
         const teacher = res.data[0];
         
-        // 从 quota_settings 中获取所有专业，显示 pending_quota（没有的显示为 0）
+        // 从 quota_settings 中获取所有专业，显示：已确认未使用 + 待审批
         let availableQuotas = [];
         if (teacher.quota_settings && Array.isArray(teacher.quota_settings)) {
-          availableQuotas = teacher.quota_settings.map(item => ({
-            code: item.code,
-            name: item.name,
-            pending_quota: item.pending_quota || 0
-          }));
+          availableQuotas = teacher.quota_settings
+            .filter(item => ['level1', 'level2', 'level3'].includes(item.type))
+            .map(item => {
+              const maxQuota = Number(item.max_quota || 0);
+              const usedQuota = Number(item.used_quota || 0);
+              const pendingQuota = Number(item.pending_quota || 0);
+              const confirmedRemaining = Math.max(maxQuota - usedQuota, 0);
+              return {
+                code: item.code,
+                name: item.name,
+                type: item.type,
+                confirmed_remaining: confirmedRemaining,
+                pending_quota: pendingQuota,
+                total_available: confirmedRemaining + pendingQuota,
+              };
+            });
           
           // 按专业代码排序：先按代码长度（一级2位、二级4位、三级6位），再按代码字母顺序
           availableQuotas.sort((a, b) => {
             // 先按代码长度排序（短的在前，即一级->二级->三级）
-            if (a.code.length !== b.code.length) {
-              return a.code.length - b.code.length;
+            const aCode = String(a.code || '');
+            const bCode = String(b.code || '');
+            if (aCode.length !== bCode.length) {
+              return aCode.length - bCode.length;
             }
             // 同级别按代码字母顺序排序
-            return a.code.localeCompare(b.code);
+            return aCode.localeCompare(bCode);
           });
         }
         
@@ -685,44 +698,78 @@ showTeacherEditPopup(event) {
         
         // 处理一级专业
         if (totalQuotaData.level1_quota) {
-          Object.values(totalQuotaData.level1_quota).forEach(item => {
-            rejectedQuotaMap[item.code] = item.pending_approval || 0;
+          Object.entries(totalQuotaData.level1_quota).forEach(([rawKey, rawItem]) => {
+        const item = rawItem || {};
+        const [codeFromKey, trackFromKey] = String(rawKey || '').split('__');
+        const code = String(item.code || codeFromKey || '').trim();
+        if (!code) return;
+        const track = String(item.track || trackFromKey || '全日制').trim();
+            const normalizedItem = { ...item, code, track };
+            const key = this.getQuotaUiKey(normalizedItem);
+            rejectedQuotaMap[key] = item.pending_approval || 0;
+            if (track === '全日制' || String(track).toLowerCase() === 'regular') rejectedQuotaMap[code] = item.pending_approval || 0;
           });
         }
         // 处理二级专业
         if (totalQuotaData.level2_quota) {
-          Object.values(totalQuotaData.level2_quota).forEach(item => {
-            rejectedQuotaMap[item.code] = item.pending_approval || 0;
+          Object.entries(totalQuotaData.level2_quota).forEach(([rawKey, rawItem]) => {
+        const item = rawItem || {};
+        const [codeFromKey, trackFromKey] = String(rawKey || '').split('__');
+        const code = String(item.code || codeFromKey || '').trim();
+        if (!code) return;
+        const track = String(item.track || trackFromKey || '全日制').trim();
+            const normalizedItem = { ...item, code, track };
+            const key = this.getQuotaUiKey(normalizedItem);
+            rejectedQuotaMap[key] = item.pending_approval || 0;
+            if (track === '全日制' || String(track).toLowerCase() === 'regular') rejectedQuotaMap[code] = item.pending_approval || 0;
           });
         }
         // 处理三级专业
         if (totalQuotaData.level3_quota) {
-          Object.values(totalQuotaData.level3_quota).forEach(item => {
-            rejectedQuotaMap[item.code] = item.pending_approval || 0;
+          Object.entries(totalQuotaData.level3_quota).forEach(([rawKey, rawItem]) => {
+        const item = rawItem || {};
+        const [codeFromKey, trackFromKey] = String(rawKey || '').split('__');
+        const code = String(item.code || codeFromKey || '').trim();
+        if (!code) return;
+        const track = String(item.track || trackFromKey || '全日制').trim();
+            const normalizedItem = { ...item, code, track };
+            const key = this.getQuotaUiKey(normalizedItem);
+            rejectedQuotaMap[key] = item.pending_approval || 0;
+            if (track === '全日制' || String(track).toLowerCase() === 'regular') rejectedQuotaMap[code] = item.pending_approval || 0;
           });
         }
         
         // 从 quota_settings 构建可编辑的名额列表
         let editableQuotas = [];
         if (teacher.quota_settings && Array.isArray(teacher.quota_settings)) {
-          editableQuotas = teacher.quota_settings.map(item => ({
-            code: item.code,
-            name: item.name,
-            pending_quota: item.pending_quota || 0,  // 已导入指标（未确认）
-            max_quota: item.max_quota || 0,
-            used_quota: item.used_quota || 0,  // 已确认指标
-            rejected_quota: rejectedQuotaMap[item.code] || 0,  // 被退回指标（来自TotalQuota）
-            pendingChange: 0,  // 暂存的变更值（加的数量）
-            subtractFromPending: 0,  // 从pending_quota减的数量
-            subtractFromUsed: 0  // 从used_quota减的数量
-          }));
+          editableQuotas = teacher.quota_settings.map(item => {
+            const uiKey = this.getQuotaUiKey(item);
+            const track = String(item.track || '全日制').trim();
+            return {
+              code: item.code,
+              track,
+              trackText: this.getTrackText(track),
+              uiKey,
+              name: item.name,
+              pending_quota: item.pending_quota || 0,  // 已导入指标（未确认）
+              max_quota: item.max_quota || 0,
+              used_quota: item.used_quota || 0,  // 已确认指标
+              confirmed_remaining: Math.max((item.max_quota || 0) - (item.used_quota || 0), 0), // 已确认未使用
+              rejected_quota: rejectedQuotaMap[uiKey] ?? rejectedQuotaMap[item.code] ?? 0,  // 被退回指标（来自TotalQuota）
+              pendingChange: 0,  // 暂存的变更值（加的数量）
+              subtractFromPending: 0,  // 从pending_quota减的数量
+              subtractFromConfirmed: 0  // 从已确认未使用减的数量（通过减少max_quota实现）
+            };
+          });
           
           // 按专业代码排序：先按代码长度（一级->二级->三级），再按代码字母顺序
           editableQuotas.sort((a, b) => {
             if (a.code.length !== b.code.length) {
               return a.code.length - b.code.length;
             }
-            return a.code.localeCompare(b.code);
+            const codeCmp = a.code.localeCompare(b.code);
+            if (codeCmp !== 0) return codeCmp;
+            return String(a.track || '全日制').localeCompare(String(b.track || '全日制'));
           });
         }
         
@@ -845,11 +892,11 @@ handleTeacherPasswordInput(e) {
 // 修改暂存字段的值（基于 quota_settings）
 // 加一：从被退回指标中分配；减一：从已导入指标中扣除
 modifyQuota(e) {
-  const { code, action } = e.currentTarget.dataset; // 获取专业代码和动作
+  const { key, action } = e.currentTarget.dataset; // 获取专业键(code__track)和动作
   const editableQuotas = [...this.data.editableQuotas];
   
   // 找到对应的专业
-  const index = editableQuotas.findIndex(item => item.code === code);
+  const index = editableQuotas.findIndex(item => item.uiKey === key);
   if (index === -1) return;
   
   const quota = editableQuotas[index];
@@ -870,18 +917,18 @@ modifyQuota(e) {
   } else if (action === 'subtract') {
     // 减少指标逻辑：
     // 1. 先从 pending_quota（未确认指标）中减
-    // 2. 如果 pending_quota 不够，再从 used_quota（已确认指标）中减
+    // 2. 如果 pending_quota 不够，再从已确认未使用名额中减
     
     // 计算当前可减的数量
     const currentPendingAvailable = (quota.pending_quota || 0) - (quota.subtractFromPending || 0);
-    const currentUsedAvailable = (quota.used_quota || 0) - (quota.subtractFromUsed || 0);
+    const currentConfirmedAvailable = (quota.confirmed_remaining || 0) - (quota.subtractFromConfirmed || 0);
     
     if (currentPendingAvailable > 0) {
       // 优先从pending_quota减
       quota.subtractFromPending = (quota.subtractFromPending || 0) + 1;
-    } else if (currentUsedAvailable > 0) {
-      // pending_quota不够，从used_quota减
-      quota.subtractFromUsed = (quota.subtractFromUsed || 0) + 1;
+    } else if (currentConfirmedAvailable > 0) {
+      // pending_quota不够，从已确认未使用减
+      quota.subtractFromConfirmed = (quota.subtractFromConfirmed || 0) + 1;
     } else {
       wx.showToast({
         title: `${quota.name}没有可减的指标`,
@@ -917,7 +964,7 @@ saveTeacherChanges() {
   const changedQuotas = editableQuotas.filter(item => 
     (item.pendingChange && item.pendingChange > 0) || 
     (item.subtractFromPending && item.subtractFromPending > 0) ||
-    (item.subtractFromUsed && item.subtractFromUsed > 0)
+    (item.subtractFromConfirmed && item.subtractFromConfirmed > 0)
   );
   
   if (changedQuotas.length === 0) {
@@ -938,26 +985,26 @@ saveTeacherChanges() {
   // 分离增加和减少的变更
   const addChanges = changedQuotas.filter(item => item.pendingChange > 0);
   const subtractChanges = changedQuotas.filter(item => 
-    (item.subtractFromPending > 0) || (item.subtractFromUsed > 0)
+    (item.subtractFromPending > 0) || (item.subtractFromConfirmed > 0)
   );
   
   // 格式化变更内容用于显示
   let formatContent = '';
   if (addChanges.length > 0) {
     formatContent += '从被退回指标新增：\n' + addChanges.map(item => 
-      `${item.name}（${item.code}）：+${item.pendingChange}`
+      `${item.name}（${item.code}，${item.trackText || this.getTrackText(item.track)}）：+${item.pendingChange}`
     ).join('\n');
   }
   if (subtractChanges.length > 0) {
     if (formatContent) formatContent += '\n\n';
     formatContent += '减少指标：\n' + subtractChanges.map(item => {
-      let detail = `${item.name}（${item.code}）：`;
+      let detail = `${item.name}（${item.code}，${item.trackText || this.getTrackText(item.track)}）：`;
       const parts = [];
       if (item.subtractFromPending > 0) {
         parts.push(`从未确认减${item.subtractFromPending}`);
       }
-      if (item.subtractFromUsed > 0) {
-        parts.push(`从已确认减${item.subtractFromUsed}`);
+      if (item.subtractFromConfirmed > 0) {
+        parts.push(`从已确认未使用减${item.subtractFromConfirmed}`);
       }
       return detail + parts.join('，');
     }).join('\n');
@@ -981,30 +1028,31 @@ saveTeacherChanges() {
             const currentTeacher = teacherRes.data;
             const currentQuotaSettings = currentTeacher.quota_settings || [];
             
-            // 更新 quota_settings 中对应专业的 pending_quota 和 used_quota
+            // 更新 quota_settings 中对应专业的 pending_quota 和 max_quota
             const updatedQuotaSettings = currentQuotaSettings.map(setting => {
-              const change = changedQuotas.find(c => c.code === setting.code);
+              const settingKey = `${String(setting.code || '').trim()}__${String(setting.track || '全日制').trim()}`;
+              const change = changedQuotas.find(c => c.uiKey === settingKey);
               if (change) {
                 let newPendingQuota = setting.pending_quota || 0;
-                let newUsedQuota = setting.used_quota || 0;
+                let newMaxQuota = setting.max_quota || 0;
                 
                 // 加一：增加 pending_quota
                 if (change.pendingChange > 0) {
                   newPendingQuota += change.pendingChange;
                 }
                 
-                // 减一：先从 pending_quota 减，再从 used_quota 减
+                // 减一：先从 pending_quota 减，再从已确认未使用(max_quota - used_quota)减
                 if (change.subtractFromPending > 0) {
                   newPendingQuota -= change.subtractFromPending;
                 }
-                if (change.subtractFromUsed > 0) {
-                  newUsedQuota -= change.subtractFromUsed;
+                if (change.subtractFromConfirmed > 0) {
+                  newMaxQuota -= change.subtractFromConfirmed;
                 }
                 
                 return {
                   ...setting,
                   pending_quota: newPendingQuota,
-                  used_quota: newUsedQuota
+                  max_quota: newMaxQuota
                 };
               }
               return setting;
@@ -1030,6 +1078,7 @@ saveTeacherChanges() {
             // 根据代码长度判断是哪个级别
             changedQuotas.forEach(change => {
               const code = change.code;
+              const track = String(change.track || '全日制').trim();
               let levelKey;
               if (code.length <= 2) {
                 levelKey = 'level1_quota';
@@ -1038,34 +1087,38 @@ saveTeacherChanges() {
               } else {
                 levelKey = 'level3_quota';
               }
-              
-              // 构建更新路径
+
+              // 构建更新路径（优先匹配 code__track，兼容旧数据 code）
               const currentLevel = totalQuotaData[levelKey] || {};
-              if (currentLevel[code]) {
-                if (!updateData[levelKey]) {
-                  updateData[levelKey] = { ...currentLevel };
-                }
-                
-                let pendingApprovalChange = 0;
-                
-                // 加一：从被退回指标(pending_approval)分配，减少pending_approval
-                if (change.pendingChange > 0) {
-                  pendingApprovalChange -= change.pendingChange;
-                }
-                
-                // 减一：返还到被退回指标(pending_approval)，增加pending_approval
-                if (change.subtractFromPending > 0) {
-                  pendingApprovalChange += change.subtractFromPending;
-                }
-                if (change.subtractFromUsed > 0) {
-                  pendingApprovalChange += change.subtractFromUsed;
-                }
-                
-                updateData[levelKey][code] = {
-                  ...currentLevel[code],
-                  pending_approval: (currentLevel[code].pending_approval || 0) + pendingApprovalChange
-                };
+              const compositeKey = `${code}__${track}`;
+              const targetKey = currentLevel[compositeKey] ? compositeKey : (currentLevel[code] ? code : compositeKey);
+              if (!updateData[levelKey]) {
+                updateData[levelKey] = { ...currentLevel };
               }
+
+              let pendingApprovalChange = 0;
+
+              // 加一：从被退回指标(pending_approval)分配，减少pending_approval
+              if (change.pendingChange > 0) {
+                pendingApprovalChange -= change.pendingChange;
+              }
+
+              // 减一：返还到被退回指标(pending_approval)，增加pending_approval
+              if (change.subtractFromPending > 0) {
+                pendingApprovalChange += change.subtractFromPending;
+              }
+              if (change.subtractFromConfirmed > 0) {
+                pendingApprovalChange += change.subtractFromConfirmed;
+              }
+
+              const currentEntry = currentLevel[targetKey] || { code, name: change.name, track, quota: 0, pending_approval: 0 };
+              updateData[levelKey][targetKey] = {
+                ...currentEntry,
+                code,
+                name: change.name,
+                track,
+                pending_approval: Number(currentEntry.pending_approval || 0) + pendingApprovalChange
+              };
             });
             
             if (Object.keys(updateData).length > 0) {
@@ -1941,60 +1994,105 @@ outPutexample() {
   },
   
   
-// 1. 从 TotalQuota 集合和教师汇总获取数据
+// 1. 从 Logic + TotalQuota 获取数据（按 Logic 的类型渲染看板）
 loadQuotaData() {
   wx.showLoading({ title: '统计数据中...' });
   const db = wx.cloud.database();
-  
-  // 只从 TotalQuota 获取数据
-  db.collection('TotalQuota').doc('totalquota').get()
-    .then(res => {
-      wx.hideLoading();
-      const totalQuotaData = res.data || {};
-    
-    // 将 level1_quota, level2_quota, level3_quota 转换为列表格式
+
+  const getAllLogicRows = () =>
+    db.collection('Logic').count().then((countRes) => {
+      const total = countRes.total || 0;
+      if (total === 0) return [];
+      const batchSize = 100;
+      const tasks = [];
+      for (let i = 0; i < total; i += batchSize) {
+        tasks.push(db.collection('Logic').skip(i).limit(batchSize).get().then((res) => res.data || []));
+      }
+      return Promise.all(tasks).then((chunks) => chunks.flat());
+    });
+
+  Promise.all([
+    db.collection('TotalQuota').doc('totalquota').get().then((res) => res.data || {}),
+    getAllLogicRows()
+  ]).then(([totalQuotaData, logicRows]) => {
+    wx.hideLoading();
+
+    const levelMaps = {
+      level1: totalQuotaData.level1_quota || {},
+      level2: totalQuotaData.level2_quota || {},
+      level3: totalQuotaData.level3_quota || {}
+    };
+
+    const getQuotaByLevelCodeTrack = (level, code, track) => {
+      const levelMap = levelMaps[level] || {};
+      const compositeKey = `${code}__${track}`;
+      const entry = levelMap[compositeKey] || levelMap[code] || null;
+      if (!entry) {
+        return { max_total: 0, pending_total: 0 };
+      }
+      return {
+        max_total: Number(entry.quota || 0),
+        pending_total: Number(entry.pending_approval || 0)
+      };
+    };
+
+    // 按 Logic 去重生成展示项：只显示 Logic 中真实存在的 code+track 组合
+    const pushIfAbsent = (arr, seen, item) => {
+      const key = `${item.type}__${item.code}__${item.track}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      arr.push(item);
+    };
+
     const list = [];
-    
-    // 处理一级专业
-    if (totalQuotaData.level1_quota) {
-      Object.values(totalQuotaData.level1_quota).forEach(item => {
-        list.push({
-          code: item.code,
-          name: item.name,
+    const seen = new Set();
+
+    (logicRows || []).forEach((row) => {
+      const track = String(row.track || '全日制').trim();
+
+      const l1Code = String(row.level1_code || '').trim();
+      const l1Name = String(row.level1_name || '').trim();
+      if (l1Code) {
+        const q = getQuotaByLevelCodeTrack('level1', l1Code, track);
+        pushIfAbsent(list, seen, {
+          code: l1Code,
+          name: l1Name,
+          track,
           type: 'level1',
-          max_total: item.quota || 0,              // 总指标（来自 TotalQuota.quota）
-          pending_total: item.pending_approval || 0  // 待发指标（来自 TotalQuota.pending_approval）
+          max_total: q.max_total,
+          pending_total: q.pending_total
         });
-      });
-    }
-    
-    // 处理二级专业
-    if (totalQuotaData.level2_quota) {
-      Object.values(totalQuotaData.level2_quota).forEach(item => {
-        list.push({
-          code: item.code,
-          name: item.name,
+      }
+
+      const l2Code = String(row.level2_code || '').trim();
+      const l2Name = String(row.level2_name || '').trim();
+      if (l2Code) {
+        const q = getQuotaByLevelCodeTrack('level2', l2Code, track);
+        pushIfAbsent(list, seen, {
+          code: l2Code,
+          name: l2Name,
+          track,
           type: 'level2',
-          max_total: item.quota || 0,
-          pending_total: item.pending_approval || 0
+          max_total: q.max_total,
+          pending_total: q.pending_total
         });
-      });
-    }
-    
-    // 处理三级专业
-    if (totalQuotaData.level3_quota) {
-      Object.values(totalQuotaData.level3_quota).forEach(item => {
-        list.push({
-          code: item.code,
-          name: item.name,
+      }
+
+      const l3Code = String(row.level3_code || '').trim();
+      const l3Name = String(row.level3_name || '').trim();
+      if (l3Code) {
+        const q = getQuotaByLevelCodeTrack('level3', l3Code, track);
+        pushIfAbsent(list, seen, {
+          code: l3Code,
+          name: l3Name,
+          track,
           type: 'level3',
-          max_total: item.quota || 0,
-          pending_total: item.pending_approval || 0
+          max_total: q.max_total,
+          pending_total: q.pending_total
         });
-      });
-    }
-    
-    // 拿到数据后，进行前端处理（计算层级、父子关系）
+      }
+    });
+
     const processed = this.processTreeData(list);
     this.setData({ quotaTreeList: processed });
   }).catch(err => {
@@ -2007,7 +2105,11 @@ loadQuotaData() {
 // 2. 前端处理：添加折叠控制字段
 processTreeData(list) {
   // 确保按代码排序
-  list.sort((a, b) => a.code.localeCompare(b.code));
+  list.sort((a, b) => {
+    const codeCmp = String(a.code || '').localeCompare(String(b.code || ''));
+    if (codeCmp !== 0) return codeCmp;
+    return String(a.track || '全日制').localeCompare(String(b.track || '全日制'));
+  });
 
   return list.map((item, index) => {
     // 计算层级 (简单判断：type 或者 code长度)
@@ -2021,13 +2123,14 @@ processTreeData(list) {
     if (index < list.length - 1) {
       const nextItem = list[index + 1];
       // 比如 0854 startsWith 08
-      if (nextItem.code.startsWith(item.code)) {
+      if (String(nextItem.track || '') === String(item.track || '') && nextItem.code.startsWith(item.code) && nextItem.code !== item.code) {
         hasChildren = true;
       }
     }
 
     return {
       ...item,
+      trackText: this.getTrackText(item.track),
       level: level,
       expanded: true, // 默认全部展开，方便查看
       show: true,     // 默认显示
@@ -2052,7 +2155,7 @@ toggleRow(e) {
     const child = list[i];
     
     // 如果不再以当前 code 开头，说明已经出了这个层级，停止循环
-    if (!child.code.startsWith(item.code)) {
+    if (String(child.track || '') !== String(item.track || '') || !child.code.startsWith(item.code)) {
       break;
     }
 
@@ -2083,6 +2186,20 @@ toggleRow(e) {
 
 
 
+
+getTrackText(track) {
+  const t = String(track || '全日制').trim();
+  const lower = t.toLowerCase();
+  if (t === '联培' || lower === 'joint') return '联培';
+  if (t === '非全日制' || t === '非全' || lower === 'parttime') return '非全日制';
+  if (t === '士兵' || lower === 'soldier') return '士兵';
+  if (t === '全日制' || t === '普通' || lower === 'regular') return '全日制';
+  return t;
+},
+
+getQuotaUiKey(item = {}) {
+  return `${String(item.code || '').trim()}__${String(item.track || '全日制').trim()}`;
+},
 
 // 前端调用云函数清空系统
 clearSystem() {
@@ -2338,6 +2455,4 @@ onPullDownRefresh() {
 
 
 });
-
-
 
