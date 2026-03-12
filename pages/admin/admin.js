@@ -2110,11 +2110,13 @@ loadQuotaData() {
 
 // 2. 前端处理：添加折叠控制字段
 processTreeData(list) {
-  // 确保按代码排序
+  // 先按类型(track)分组，再按代码层级排序，避免不同类型混在一起
   list.sort((a, b) => {
-    const codeCmp = String(a.code || '').localeCompare(String(b.code || ''));
-    if (codeCmp !== 0) return codeCmp;
-    return String(a.track || '全日制').localeCompare(String(b.track || '全日制'));
+    const trackCmp = String(a.track || '全日制').localeCompare(String(b.track || '全日制'));
+    if (trackCmp !== 0) return trackCmp;
+    const lenCmp = String(a.code || '').length - String(b.code || '').length;
+    if (lenCmp !== 0) return lenCmp;
+    return String(a.code || '').localeCompare(String(b.code || ''));
   });
 
   return list.map((item, index) => {
