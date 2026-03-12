@@ -28,7 +28,7 @@
 //     // 4. 遍历 Excel 行，将数据整理到 teacherData 对象中
 //     // 假设：第一列为导师姓名，第二列为导师 ID，从第三列开始为各专业分配指标
 //     const teacherData = {};
-//     for (let i = 1; i < data.length; i++) {
+//     for (let i = 0; i < data.length; i++) {
 //       const row = data[i];
 //       // 将导师姓名转换为字符串并去除多余空格
 //       const teacherName = row[0] ? row[0].toString().trim() : '未知';
@@ -196,14 +196,34 @@ exports.main = async (event, context) => {
     });
     const fileBuffer = fileResult.fileContent;
 
-    // 2. 解析 Excel 数据（假设数据在第一个工作表中）
+    // 2. 解析 Excel 数据（支持多个子表，每个子表代表一种类型）
     const sheets = xlsx.parse(fileBuffer);
-    const data = sheets[0].data;
+    const data = [];
+    const normalizeTrack = (value) => {
+      const raw = String(value || '').trim();
+      if (!raw) return '全日制';
+      const lower = raw.toLowerCase();
+      if (['regular', '普通', '全日制'].includes(lower) || raw === '普通' || raw === '全日制') return '全日制';
+      if (['joint', '联培'].includes(lower) || raw === '联培') return '联培';
+      if (['parttime', '非全', '非全日制'].includes(lower) || raw === '非全' || raw === '非全日制') return '非全日制';
+      if (['soldier', '士兵'].includes(lower) || raw === '士兵') return '士兵';
+      return raw;
+    };
+
+    sheets.forEach((sheet) => {
+      const sheetName = String((sheet && sheet.name) || '').trim();
+      const sheetTrack = normalizeTrack(sheetName.replace(/表$/, ''));
+      const rows = (sheet && sheet.data) || [];
+      rows.forEach((row, idx) => {
+        if (idx === 0) return; // 跳过表头
+        data.push([...(row || []), sheetTrack]);
+      });
+    });
 
     // 3. Excel列索引定义
     // 列结构：导师ID(0)、导师姓名(1)、一级名称(2)、一级代码(3)、一级新增指标数(4)、
     //        二级名称(5)、二级代码(6)、二级新增指标数(7)、
-    //        三级名称(8)、三级代码(9)、三级新增指标数(10)、学制(11)
+    //        三级名称(8)、三级代码(9)、三级新增指标数(10)、类型(11，可空)、sheetTrack(12)
     const COL_TEACHER_ID = 0;
     const COL_TEACHER_NAME = 1;
     const COL_LEVEL1_CODE = 3;
@@ -221,9 +241,9 @@ exports.main = async (event, context) => {
     
     // 用于统计全院总指标数（按一级、二级、三级分类）
     const totalQuotaStats = {
-      level1: {},  // 一级代码 -> { code, name, quota }
-      level2: {},  // 二级代码 -> { code, name, quota }
-      level3: {}   // 三级代码 -> { code, name, quota }
+      level1: {},  // key=code__track -> { code, name, track, quota }
+      level2: {},
+      level3: {}
     };
     
     // 用于记录上一行的合并单元格信息
@@ -234,8 +254,9 @@ exports.main = async (event, context) => {
     let lastLevel2Code = '';
     let lastLevel2Name = '';
     
-    for (let i = 1; i < data.length; i++) {
+    for (let i = 0; i < data.length; i++) {
       const row = data[i];
+      const rowTrack = normalizeTrack(row[12] || row[11] || "");
       
       // 跳过完全空的行
       if (!row || row.length === 0 || row.every(cell => !cell)) {
@@ -311,38 +332,38 @@ exports.main = async (event, context) => {
       if (!teacherData[teacherId]) {
         teacherData[teacherId] = {
           name: teacherName,
-          quotas: {} // 存储 专业代码 -> 增量值
+          quotas: {} // 存储 专业代码__类型 -> 增量值
         };
       }
 
       // 累加一级指标（按专业代码存储）- 同时统计全院总量
       if (level1Code && level1Value > 0) {
-        teacherData[teacherId].quotas[level1Code] = (teacherData[teacherId].quotas[level1Code] || 0) + level1Value;
-        // 统计全院一级指标
-        if (!totalQuotaStats.level1[level1Code]) {
-          totalQuotaStats.level1[level1Code] = { code: level1Code, name: level1Name, quota: 0, pending_approval: 0 };
+        const key = `${level1Code}__${rowTrack}`;
+        teacherData[teacherId].quotas[key] = (teacherData[teacherId].quotas[key] || 0) + level1Value;
+        if (!totalQuotaStats.level1[key]) {
+          totalQuotaStats.level1[key] = { code: level1Code, name: level1Name, track: rowTrack, quota: 0, pending_approval: 0 };
         }
-        totalQuotaStats.level1[level1Code].quota += level1Value;
+        totalQuotaStats.level1[key].quota += level1Value;
       }
 
       // 累加二级指标（按专业代码存储）- 同时统计全院总量
       if (level2Code && level2Value > 0) {
-        teacherData[teacherId].quotas[level2Code] = (teacherData[teacherId].quotas[level2Code] || 0) + level2Value;
-        // 统计全院二级指标
-        if (!totalQuotaStats.level2[level2Code]) {
-          totalQuotaStats.level2[level2Code] = { code: level2Code, name: level2Name, quota: 0, pending_approval: 0 };
+        const key = `${level2Code}__${rowTrack}`;
+        teacherData[teacherId].quotas[key] = (teacherData[teacherId].quotas[key] || 0) + level2Value;
+        if (!totalQuotaStats.level2[key]) {
+          totalQuotaStats.level2[key] = { code: level2Code, name: level2Name, track: rowTrack, quota: 0, pending_approval: 0 };
         }
-        totalQuotaStats.level2[level2Code].quota += level2Value;
+        totalQuotaStats.level2[key].quota += level2Value;
       }
 
       // 累加三级指标（按专业代码存储）- 同时统计全院总量
       if (level3Code && level3Value > 0) {
-        teacherData[teacherId].quotas[level3Code] = (teacherData[teacherId].quotas[level3Code] || 0) + level3Value;
-        // 统计全院三级指标
-        if (!totalQuotaStats.level3[level3Code]) {
-          totalQuotaStats.level3[level3Code] = { code: level3Code, name: level3Name, quota: 0, pending_approval: 0 };
+        const key = `${level3Code}__${rowTrack}`;
+        teacherData[teacherId].quotas[key] = (teacherData[teacherId].quotas[key] || 0) + level3Value;
+        if (!totalQuotaStats.level3[key]) {
+          totalQuotaStats.level3[key] = { code: level3Code, name: level3Name, track: rowTrack, quota: 0, pending_approval: 0 };
         }
-        totalQuotaStats.level3[level3Code].quota += level3Value;
+        totalQuotaStats.level3[key].quota += level3Value;
       }
     }
 
@@ -431,12 +452,14 @@ exports.main = async (event, context) => {
       // 在内存中计算更新后的 quota_settings
       let hasUpdate = false;
       const updatedQuotaSettings = quotaSettings.map(item => {
-        const code = item.code;
-        if (quotas[code] && quotas[code] > 0) {
+        const code = String(item.code || '').trim();
+        const track = normalizeTrack(item.track || '全日制');
+        const key = `${code}__${track}`;
+        if (quotas[key] && quotas[key] > 0) {
           hasUpdate = true;
           return {
             ...item,
-            pending_quota: (item.pending_quota || 0) + quotas[code]
+            pending_quota: (item.pending_quota || 0) + quotas[key]
           };
         }
         return item;
@@ -497,41 +520,47 @@ exports.main = async (event, context) => {
       const currentLevel3 = currentTotalQuota.level3_quota || {};
       
       // 合并一级指标统计
-      for (let code in totalQuotaStats.level1) {
-        const stat = totalQuotaStats.level1[code];
-        if (!currentLevel1[code]) {
-          currentLevel1[code] = { code: stat.code, name: stat.name, quota: 0, pending_approval: 0 };
+      for (let key in totalQuotaStats.level1) {
+        const stat = totalQuotaStats.level1[key];
+        if (!currentLevel1[key]) {
+          currentLevel1[key] = { code: stat.code, name: stat.name, track: stat.track, quota: 0, pending_approval: 0 };
         }
-        currentLevel1[code].quota = (currentLevel1[code].quota || 0) + stat.quota;
-        // 保留现有的 pending_approval，如果没有则初始化为 0
-        if (currentLevel1[code].pending_approval === undefined) {
-          currentLevel1[code].pending_approval = 0;
+        currentLevel1[key].code = stat.code;
+        currentLevel1[key].name = stat.name;
+        currentLevel1[key].track = stat.track;
+        currentLevel1[key].quota = (currentLevel1[key].quota || 0) + stat.quota;
+        if (currentLevel1[key].pending_approval === undefined) {
+          currentLevel1[key].pending_approval = 0;
         }
       }
       
       // 合并二级指标统计
-      for (let code in totalQuotaStats.level2) {
-        const stat = totalQuotaStats.level2[code];
-        if (!currentLevel2[code]) {
-          currentLevel2[code] = { code: stat.code, name: stat.name, quota: 0, pending_approval: 0 };
+      for (let key in totalQuotaStats.level2) {
+        const stat = totalQuotaStats.level2[key];
+        if (!currentLevel2[key]) {
+          currentLevel2[key] = { code: stat.code, name: stat.name, track: stat.track, quota: 0, pending_approval: 0 };
         }
-        currentLevel2[code].quota = (currentLevel2[code].quota || 0) + stat.quota;
-        // 保留现有的 pending_approval，如果没有则初始化为 0
-        if (currentLevel2[code].pending_approval === undefined) {
-          currentLevel2[code].pending_approval = 0;
+        currentLevel2[key].code = stat.code;
+        currentLevel2[key].name = stat.name;
+        currentLevel2[key].track = stat.track;
+        currentLevel2[key].quota = (currentLevel2[key].quota || 0) + stat.quota;
+        if (currentLevel2[key].pending_approval === undefined) {
+          currentLevel2[key].pending_approval = 0;
         }
       }
       
       // 合并三级指标统计
-      for (let code in totalQuotaStats.level3) {
-        const stat = totalQuotaStats.level3[code];
-        if (!currentLevel3[code]) {
-          currentLevel3[code] = { code: stat.code, name: stat.name, quota: 0, pending_approval: 0 };
+      for (let key in totalQuotaStats.level3) {
+        const stat = totalQuotaStats.level3[key];
+        if (!currentLevel3[key]) {
+          currentLevel3[key] = { code: stat.code, name: stat.name, track: stat.track, quota: 0, pending_approval: 0 };
         }
-        currentLevel3[code].quota = (currentLevel3[code].quota || 0) + stat.quota;
-        // 保留现有的 pending_approval，如果没有则初始化为 0
-        if (currentLevel3[code].pending_approval === undefined) {
-          currentLevel3[code].pending_approval = 0;
+        currentLevel3[key].code = stat.code;
+        currentLevel3[key].name = stat.name;
+        currentLevel3[key].track = stat.track;
+        currentLevel3[key].quota = (currentLevel3[key].quota || 0) + stat.quota;
+        if (currentLevel3[key].pending_approval === undefined) {
+          currentLevel3[key].pending_approval = 0;
         }
       }
       
