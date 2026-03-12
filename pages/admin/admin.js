@@ -2136,9 +2136,7 @@ processTreeData(list) {
     const trackCmp = aTrack.localeCompare(bTrack);
     if (trackCmp !== 0) return trackCmp;
 
-    const lenCmp = String(a.code || '').length - String(b.code || '').length;
-    if (lenCmp !== 0) return lenCmp;
-
+    // 同一门类+类型内按代码前缀顺序，确保 level1->level2->level3 连续，便于展开树
     return String(a.code || '').localeCompare(String(b.code || ''));
   });
 
