@@ -2000,99 +2000,106 @@ outPutexample() {
   },
   
   
-// 1. 从 TotalQuota 集合和教师汇总获取数据
+// 1. 从 Logic + TotalQuota 获取数据（按 Logic 的类型渲染看板）
 loadQuotaData() {
   wx.showLoading({ title: '统计数据中...' });
   const db = wx.cloud.database();
-  
-  // 只从 TotalQuota 获取数据
-  db.collection('TotalQuota').doc('totalquota').get()
-    .then(res => {
-      wx.hideLoading();
-      const totalQuotaData = res.data || {};
-    
-    // 将 level1_quota, level2_quota, level3_quota 转换为列表格式
-    const list = [];
-    
-    // 处理一级专业
-    if (totalQuotaData.level1_quota) {
-      Object.entries(totalQuotaData.level1_quota).forEach(([rawKey, rawItem]) => {
-        const item = rawItem || {};
-        const [codeFromKey, trackFromKey] = String(rawKey || '').split('__');
-        const code = String(item.code || codeFromKey || '').trim();
-        if (!code) return;
-        const track = String(item.track || trackFromKey || '全日制').trim();
-        list.push({
-          code,
-          name: item.name,
-          track,
-          type: 'level1',
-          max_total: item.quota || 0,              // 总指标（来自 TotalQuota.quota）
-          pending_total: item.pending_approval || 0  // 待发指标（来自 TotalQuota.pending_approval）
-        });
-      });
-    }
-    
-    // 处理二级专业
-    if (totalQuotaData.level2_quota) {
-      Object.entries(totalQuotaData.level2_quota).forEach(([rawKey, rawItem]) => {
-        const item = rawItem || {};
-        const [codeFromKey, trackFromKey] = String(rawKey || '').split('__');
-        const code = String(item.code || codeFromKey || '').trim();
-        if (!code) return;
-        const track = String(item.track || trackFromKey || '全日制').trim();
-        list.push({
-          code,
-          name: item.name,
-          track,
-          type: 'level2',
-          max_total: item.quota || 0,
-          pending_total: item.pending_approval || 0
-        });
-      });
-    }
-    
-    // 处理三级专业
-    if (totalQuotaData.level3_quota) {
-      Object.entries(totalQuotaData.level3_quota).forEach(([rawKey, rawItem]) => {
-        const item = rawItem || {};
-        const [codeFromKey, trackFromKey] = String(rawKey || '').split('__');
-        const code = String(item.code || codeFromKey || '').trim();
-        if (!code) return;
-        const track = String(item.track || trackFromKey || '全日制').trim();
-        list.push({
-          code,
-          name: item.name,
-          track,
-          type: 'level3',
-          max_total: item.quota || 0,
-          pending_total: item.pending_approval || 0
-        });
-      });
-    }
-    
-    // 同码同层级聚合去重（避免监控面板重复显示）
-    const mergedMap = new Map();
-    list.forEach((item) => {
-      const key = `${item.type}__${item.code}__${String(item.track || '全日制')}`;
-      if (!mergedMap.has(key)) {
-        mergedMap.set(key, {
-          ...item,
-          max_total: Number(item.max_total || 0),
-          pending_total: Number(item.pending_total || 0)
-        });
-        return;
+
+  const getAllLogicRows = () =>
+    db.collection('Logic').count().then((countRes) => {
+      const total = countRes.total || 0;
+      if (total === 0) return [];
+      const batchSize = 100;
+      const tasks = [];
+      for (let i = 0; i < total; i += batchSize) {
+        tasks.push(db.collection('Logic').skip(i).limit(batchSize).get().then((res) => res.data || []));
       }
-      const current = mergedMap.get(key);
-      current.max_total += Number(item.max_total || 0);
-      current.pending_total += Number(item.pending_total || 0);
-      if (!current.name && item.name) current.name = item.name;
-      mergedMap.set(key, current);
+      return Promise.all(tasks).then((chunks) => chunks.flat());
     });
 
-    // 拿到数据后，进行前端处理（计算层级、父子关系）
-    const dedupedList = Array.from(mergedMap.values());
-    const processed = this.processTreeData(dedupedList);
+  Promise.all([
+    db.collection('TotalQuota').doc('totalquota').get().then((res) => res.data || {}),
+    getAllLogicRows()
+  ]).then(([totalQuotaData, logicRows]) => {
+    wx.hideLoading();
+
+    const levelMaps = {
+      level1: totalQuotaData.level1_quota || {},
+      level2: totalQuotaData.level2_quota || {},
+      level3: totalQuotaData.level3_quota || {}
+    };
+
+    const getQuotaByLevelCodeTrack = (level, code, track) => {
+      const levelMap = levelMaps[level] || {};
+      const compositeKey = `${code}__${track}`;
+      const entry = levelMap[compositeKey] || levelMap[code] || null;
+      if (!entry) {
+        return { max_total: 0, pending_total: 0 };
+      }
+      return {
+        max_total: Number(entry.quota || 0),
+        pending_total: Number(entry.pending_approval || 0)
+      };
+    };
+
+    // 按 Logic 去重生成展示项：只显示 Logic 中真实存在的 code+track 组合
+    const pushIfAbsent = (arr, seen, item) => {
+      const key = `${item.type}__${item.code}__${item.track}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      arr.push(item);
+    };
+
+    const list = [];
+    const seen = new Set();
+
+    (logicRows || []).forEach((row) => {
+      const track = String(row.track || '全日制').trim();
+
+      const l1Code = String(row.level1_code || '').trim();
+      const l1Name = String(row.level1_name || '').trim();
+      if (l1Code) {
+        const q = getQuotaByLevelCodeTrack('level1', l1Code, track);
+        pushIfAbsent(list, seen, {
+          code: l1Code,
+          name: l1Name,
+          track,
+          type: 'level1',
+          max_total: q.max_total,
+          pending_total: q.pending_total
+        });
+      }
+
+      const l2Code = String(row.level2_code || '').trim();
+      const l2Name = String(row.level2_name || '').trim();
+      if (l2Code) {
+        const q = getQuotaByLevelCodeTrack('level2', l2Code, track);
+        pushIfAbsent(list, seen, {
+          code: l2Code,
+          name: l2Name,
+          track,
+          type: 'level2',
+          max_total: q.max_total,
+          pending_total: q.pending_total
+        });
+      }
+
+      const l3Code = String(row.level3_code || '').trim();
+      const l3Name = String(row.level3_name || '').trim();
+      if (l3Code) {
+        const q = getQuotaByLevelCodeTrack('level3', l3Code, track);
+        pushIfAbsent(list, seen, {
+          code: l3Code,
+          name: l3Name,
+          track,
+          type: 'level3',
+          max_total: q.max_total,
+          pending_total: q.pending_total
+        });
+      }
+    });
+
+    const processed = this.processTreeData(list);
     this.setData({ quotaTreeList: processed });
   }).catch(err => {
     wx.hideLoading();
@@ -2122,7 +2129,7 @@ processTreeData(list) {
     if (index < list.length - 1) {
       const nextItem = list[index + 1];
       // 比如 0854 startsWith 08
-      if (nextItem.code.startsWith(item.code)) {
+      if (String(nextItem.track || '') === String(item.track || '') && nextItem.code.startsWith(item.code) && nextItem.code !== item.code) {
         hasChildren = true;
       }
     }
@@ -2154,7 +2161,7 @@ toggleRow(e) {
     const child = list[i];
     
     // 如果不再以当前 code 开头，说明已经出了这个层级，停止循环
-    if (!child.code.startsWith(item.code)) {
+    if (String(child.track || '') !== String(item.track || '') || !child.code.startsWith(item.code)) {
       break;
     }
 
