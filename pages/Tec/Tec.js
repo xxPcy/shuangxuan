@@ -17,7 +17,33 @@ Page({
 
     pendingChanges: [],
     quotaInfo: [], // 保存各类别名额信息（优先读取 quota_settings）
+    quotaTrackSections: [],
+    activeQuotaTrack: '全日制',
     announcements: [], // 公告列表
+  },
+
+  normalizeTrackValue(track) {
+    const raw = String(track || '全日制').trim();
+    const lower = raw.toLowerCase();
+    if (!raw) return '全日制';
+    if (raw === '联培' || lower === 'joint') return '联培';
+    if (raw === '非全日制' || raw === '非全' || lower === 'parttime') return '非全日制';
+    if (raw === '士兵' || lower === 'soldier') return '士兵';
+    if (raw === '全日制' || raw === '普通' || lower === 'regular') return '全日制';
+    return raw;
+  },
+
+  getTrackOrder(track) {
+    const map = { '全日制': 1, '联培': 2, '非全日制': 3, '士兵': 4 };
+    return map[this.normalizeTrackValue(track)] || 99;
+  },
+
+  resolveActiveTrack(sections = [], preferredTrack) {
+    const normalizedPreferred = this.normalizeTrackValue(preferredTrack || '');
+    if (normalizedPreferred && sections.some((item) => this.normalizeTrackValue(item.track) === normalizedPreferred)) {
+      return normalizedPreferred;
+    }
+    return sections[0] ? this.normalizeTrackValue(sections[0].track) : '全日制';
   },
 
   /**
@@ -138,10 +164,11 @@ Page({
               const used = Number(item.used_quota || 0);
               const remaining = Math.max(total - used, 0);
               const pending = Number(item.pending_quota || 0);
+              const normalizedTrack = this.normalizeTrackValue(item.track);
               return {
                 key: item.code,
-                track: String(item.track || '全日制').trim(),
-                uiKey: `${String(item.code)}__${String(item.track || '全日制').trim()}`,
+                track: normalizedTrack,
+                uiKey: `${String(item.code)}__${normalizedTrack}`,
                 label: item.name || item.code,
                 level: typeText[item.type] || item.type,
                 levelOrder: orderMap[item.type] || 99,
@@ -153,22 +180,23 @@ Page({
             })
             .sort((a, b) => {
               if (a.levelOrder !== b.levelOrder) return a.levelOrder - b.levelOrder;
-              return String(a.key).localeCompare(String(b.key));
+              const codeCmp = String(a.key).localeCompare(String(b.key));
+              if (codeCmp !== 0) return codeCmp;
+              return this.getTrackOrder(a.track) - this.getTrackOrder(b.track);
             });
 
           // 若逻辑表里有该 code 的标准名称，则覆盖显示（避免历史名称不统一）
           const logicNameMap = {};
           logicRows.forEach((row) => {
-            const track = String(row.track || '全日制').trim();
+            const track = this.normalizeTrackValue(row.track);
             if (row.level1_code) logicNameMap[`${String(row.level1_code)}__${track}`] = row.level1_name;
             if (row.level2_code) logicNameMap[`${String(row.level2_code)}__${track}`] = row.level2_name;
             if (row.level3_code) logicNameMap[`${String(row.level3_code)}__${track}`] = row.level3_name;
           });
           quotaInfo = quotaInfo.map((item) => {
-            const track = String(item.track || '全日制').trim();
+            const track = this.normalizeTrackValue(item.track);
             const lookupKey = `${String(item.key)}__${track}`;
-            const lower = String(track || '').toLowerCase();
-            const trackText = (track === '联培' || lower === 'joint') ? '联培' : ((track === '非全日制' || track === '非全' || lower === 'parttime') ? '非全日制' : ((track === '士兵' || lower === 'soldier') ? '士兵' : (track || '全日制')));
+            const trackText = this.normalizeTrackValue(track);
             const baseLabel = logicNameMap[lookupKey] || item.label;
             return {
               ...item,
@@ -178,7 +206,28 @@ Page({
           });
         }
 
-        this.setData({ quotaInfo });
+        const sectionMap = new Map();
+        const defaultOrder = ['全日制', '联培', '非全日制', '士兵'];
+        defaultOrder.forEach((track) => {
+          sectionMap.set(track, { track, expanded: true, items: [] });
+        });
+        quotaInfo.forEach((item) => {
+          const track = this.normalizeTrackValue(item.track);
+          if (!sectionMap.has(track)) {
+            sectionMap.set(track, { track, expanded: true, items: [] });
+          }
+          sectionMap.get(track).items.push(item);
+        });
+
+        const quotaTrackSections = Array.from(sectionMap.values())
+          .filter((section) => section.items.length > 0)
+          .sort((a, b) => this.getTrackOrder(a.track) - this.getTrackOrder(b.track));
+
+        this.setData({
+          quotaInfo,
+          quotaTrackSections,
+          activeQuotaTrack: this.resolveActiveTrack(quotaTrackSections, this.data.activeQuotaTrack)
+        });
       })
       .catch((err) => {
         console.error('加载名额数据失败:', err);
@@ -501,6 +550,11 @@ Page({
     this.handleApprovalAction(e, 'reject');
   },
 
+  setActiveQuotaTrack(e) {
+    const track = this.normalizeTrackValue((e.currentTarget.dataset || {}).track);
+    this.setData({ activeQuotaTrack: track });
+  },
+
   handleApprovalAction(e, action) {
     const currentDataset = (e && e.currentTarget && e.currentTarget.dataset) || {};
     const targetDataset = (e && e.target && e.target.dataset) || {};
@@ -530,7 +584,7 @@ Page({
 
     const resolvedKey = pendingChange.key || type;
     const resolvedType = pendingChange.code || (String(resolvedKey || '').split('__')[0]);
-    const resolvedTrack = pendingChange.track || (String(resolvedKey || '').split('__')[1]) || '全日制';
+    const resolvedTrack = this.normalizeTrackValue(pendingChange.track || (String(resolvedKey || '').split('__')[1]) || '全日制');
     if (resolvedType === undefined || resolvedType === null || String(resolvedType) === '') {
       wx.showToast({ title: '未找到名额类型，请刷新', icon: 'none' });
       return;
@@ -574,7 +628,10 @@ Page({
             return;
           }
 
-          const quotaIndex = teacher.quota_settings.findIndex((item) => String(item.code) === String(resolvedType) && String(item.track || '全日制') === String(resolvedTrack || '全日制'));
+          const quotaIndex = teacher.quota_settings.findIndex((item) => (
+            String(item.code) === String(resolvedType)
+            && this.normalizeTrackValue(item.track) === this.normalizeTrackValue(resolvedTrack)
+          ));
           if (quotaIndex < 0) {
             wx.showToast({ title: '未找到待审批名额项(按code)', icon: 'none' });
             return;
@@ -618,9 +675,15 @@ Page({
               const totalQuotaRes = await db.collection('TotalQuota').doc('totalquota').get();
               const totalQuotaData = totalQuotaRes.data || {};
               const levelQuotaMap = { ...(totalQuotaData[levelKey] || {}) };
-              const currentCodeQuota = levelQuotaMap[code] || { code, name: category.label || code, pending_approval: 0 };
+              const compositeKey = `${code}__${resolvedTrack}`;
+              const fallbackKey = (resolvedTrack === '全日制' && levelQuotaMap[code]) ? code : compositeKey;
+              const currentCodeQuota = levelQuotaMap[fallbackKey] || { code, name: category.label || code, track: resolvedTrack, pending_approval: 0 };
               currentCodeQuota.pending_approval = Number(currentCodeQuota.pending_approval || 0) + currentPending;
-              levelQuotaMap[code] = currentCodeQuota;
+              levelQuotaMap[fallbackKey] = {
+                ...currentCodeQuota,
+                code,
+                track: resolvedTrack
+              };
 
               await db.collection('TotalQuota').doc('totalquota').update({
                 data: {
