@@ -16,6 +16,17 @@ Page({
     showchosedstudent:false,//显示已经确认学生的详细窗口
   },
 
+  normalizeTrackValue(track) {
+    const raw = String(track || '全日制').trim();
+    const lower = raw.toLowerCase();
+    if (!raw) return '全日制';
+    if (raw === '联培' || lower === 'joint') return '联培';
+    if (raw === '非全日制' || raw === '非全' || lower === 'parttime') return '非全日制';
+    if (raw === '士兵' || lower === 'soldier') return '士兵';
+    if (raw === '全日制' || raw === '普通' || lower === 'regular') return '全日制';
+    return raw;
+  },
+
   // 页面加载时触发
   onLoad: function () {
     // console.log('onLoad 被触发'); // 确认页面是否加载
@@ -238,7 +249,7 @@ Page({
   
       const level3Code = latestStudent.level3_code || latestStudent.specializedCode || '';
       const studentUseQuota = !!latestStudent.useQuota;
-      const studentTrack = latestStudent.selectedTrack || latestStudent.track || '全日制';
+      const studentTrack = this.normalizeTrackValue(latestStudent.selectedTrack || latestStudent.track || '全日制');
 
       if (!level3Code) {
         wx.hideLoading();
@@ -267,7 +278,7 @@ Page({
           .map((item, index) => ({ item, index }))
           .filter(({ item }) => ['level1', 'level2', 'level3'].includes(item.type))
           .filter(({ item }) => String(level3Code).startsWith(String(item.code || '')))
-          .filter(({ item }) => String(item.track || '全日制') === String(studentTrack || '全日制'));
+          .filter(({ item }) => this.normalizeTrackValue(item.track) === studentTrack);
 
         if (studentUseQuota) {
           const findFirstAvailable = (candidates) =>
@@ -306,7 +317,7 @@ Page({
                 phoneNumber: selectedStudent.phoneNumber,
                 Id: selectedStudent.Id,
                 categoryKey: matchedQuota.code,
-                track: matchedQuota.track || '全日制',
+                track: this.normalizeTrackValue(matchedQuota.track),
               }),
             },
           });
@@ -329,7 +340,7 @@ Page({
                 phoneNumber: selectedStudent.phoneNumber,
                 Id: selectedStudent.Id,
                 categoryKey: allCandidates[0].item.code,
-                track: allCandidates[0].item.track || '全日制',
+                track: this.normalizeTrackValue(allCandidates[0].item.track),
               }),
             },
           });
@@ -351,7 +362,7 @@ Page({
           .filter((item) =>
             ['level1', 'level2', 'level3'].includes(item.type) &&
             String(level3Code).startsWith(String(item.code || '')) &&
-            String(item.track || '全日制') === String(studentTrack || '全日制')
+            this.normalizeTrackValue(item.track) === studentTrack
           );
 
         quotaExhausted = matchedCandidates.length > 0 && matchedCandidates.every((item) =>
