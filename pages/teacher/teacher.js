@@ -32,27 +32,12 @@ Page({
       .doc(data._id)
       .get()
       .then(res => {
-        const { preselection, selectedField, status, selected, reason } = res.data; // 获取学生信息
-        const fieldMapping = {
-          'kongzhiX': '控制科学与工程',//有
-          'dqgcxs': '电气工程学硕',//有
-          'dzxxzs': '人工智能/控制工程（专硕）',//有
-          // '人工智能专硕': 'dzxxzs',//有
-          'dzxxlp': '人工智能/控制工程（联培）',//有
-          // '控制工程联培': 'dzxxlp',//有
-          'dqgczs': '电气工程专硕',//有
-          'dqgclp': '电气工程联培',//有
-          'dzxxsoldier': '人工智能/控制工程（士兵）',
-          'dqgcsoldier': '电气工程士兵计划',
-          'dzxxpartTime': '人工智能/控制工程（非全）',
-          'dqgcpartTime': '电气工程非全日制'
-        };
-        console.log("selected",selected)
-        const choseSpecialized = fieldMapping[selectedField];
-        console.log("choseSpecialized",choseSpecialized);
+        const { preselection, selectedField, status, selected, reason, specialized } = res.data; // 获取学生信息
+        console.log("selected", selected);
+        console.log("specialized", specialized);
         this.setData({
           preselection: preselection || [], // 设置导师信息
-          specialized: choseSpecialized || '', // 设置专业类别
+          specialized: specialized || '', // 直接使用数据库中的 specialized 字段
           status: status,
           selected: selected,
           rejectionMessages: reason ? this.formatMessages(reason) : [] // 格式化拒绝消息
@@ -136,28 +121,14 @@ Page({
       .doc(data._id)
       .get()
       .then(res => {
-        const { preselection, selectedField, status,  reason,selected } = res.data; // 获取学生信息
-        const fieldMapping = {
-          'kongzhiX': '控制科学与工程',//有
-          'dqgcxs': '电气工程学硕',//有
-          'dzxxzs': '人工智能/控制工程（专硕）',//有
-          // '人工智能专硕': 'dzxxzs',//有
-          'dzxxlp': '人工智能/控制工程（联培）',//有
-          // '控制工程联培': 'dzxxlp',//有
-          'dqgczs': '电气工程专硕',//有
-          'dqgclp': '电气工程联培',//有
-          'dzxxsoldier': '人工智能/控制工程（士兵）',
-          'dqgcsoldier': '电气工程士兵计划',
-          'dzxxpartTime': '人工智能/控制工程（非全）',
-          'dqgcpartTime': '电气工程非全日制'
-        };
-        const choseSpecialized = fieldMapping[selectedField];
+        const { preselection, status, reason, selected, specialized } = res.data;
+        console.log("updatedata - specialized", specialized);
         this.setData({
-          preselection: preselection || [], // 设置导师信息
-          specialized: choseSpecialized || '', // 设置专业类别
+          preselection: preselection || [],
+          specialized: specialized || '',
           status: status,
-          selected:selected,
-          rejectionMessages: reason ? this.formatMessages(reason) : [] // 格式化拒绝消息
+          selected: selected,
+          rejectionMessages: reason ? this.formatMessages(reason) : []
         });
       })
       .catch(error => {
@@ -212,28 +183,14 @@ Page({
       .doc(data._id)
       .get()
       .then(res => {
-        const { preselection, selectedField, status,  reason,selected } = res.data; // 获取学生信息
-        const fieldMapping = {
-          'kongzhiX': '控制科学与工程',//有
-          'dqgcxs': '电气工程学硕',//有
-          'dzxxzs': '人工智能/控制工程（专硕）',//有
-          // '人工智能专硕': 'dzxxzs',//有
-          'dzxxlp': '人工智能/控制工程（联培）',//有
-          // '控制工程联培': 'dzxxlp',//有
-          'dqgczs': '电气工程专硕',//有
-          'dqgclp': '电气工程联培',//有
-          'dzxxsoldier': '人工智能/控制工程（士兵）',
-          'dqgcsoldier': '电气工程士兵计划',
-          'dzxxpartTime': '人工智能/控制工程（非全）',
-          'dqgcpartTime': '电气工程非全日制'
-        };
-        const choseSpecialized = fieldMapping[selectedField];
+        const { preselection, status, reason, selected, specialized } = res.data;
+        console.log("onPullDownRefresh - specialized", specialized);
         this.setData({
-          preselection: preselection || [], // 设置导师信息
-          specialized: choseSpecialized || '', // 设置专业类别
+          preselection: preselection || [],
+          specialized: specialized || '',
           status: status,
-          selected:selected,
-          rejectionMessages: reason ? this.formatMessages(reason) : [] // 格式化拒绝消息
+          selected: selected,
+          rejectionMessages: reason ? this.formatMessages(reason) : []
         });
       })
       .catch(error => {
