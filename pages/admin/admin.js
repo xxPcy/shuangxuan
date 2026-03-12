@@ -2053,10 +2053,31 @@ loadQuotaData() {
     const list = [];
     const seen = new Set();
 
+    const normalizeHierarchyCode = (rawCode, expectedPrefix, expectedLength) => {
+      let code = String(rawCode || '').trim();
+      if (!code) return '';
+      if (!expectedLength) return code;
+
+      // Excel 数值单元格会吞掉前导 0，尽量按层级信息修复
+      if (/^\d+$/.test(code)) {
+        if (expectedPrefix && !code.startsWith(expectedPrefix)) {
+          const missingLen = expectedLength - expectedPrefix.length;
+          if (missingLen > 0 && code.length <= missingLen) {
+            return `${expectedPrefix}${code.padStart(missingLen, '0')}`;
+          }
+        }
+        if (code.length < expectedLength) {
+          code = code.padStart(expectedLength, '0');
+        }
+      }
+
+      return code;
+    };
+
     (logicRows || []).forEach((row) => {
       const track = String(row.track || '全日制').trim();
 
-      const l1Code = String(row.level1_code || '').trim();
+      const l1Code = normalizeHierarchyCode(row.level1_code, '', 2);
       const l1Name = String(row.level1_name || '').trim();
       if (l1Code) {
         const q = getQuotaByLevelCodeTrack('level1', l1Code, track);
@@ -2070,7 +2091,7 @@ loadQuotaData() {
         });
       }
 
-      const l2Code = String(row.level2_code || '').trim();
+      const l2Code = normalizeHierarchyCode(row.level2_code, l1Code, 4);
       const l2Name = String(row.level2_name || '').trim();
       if (l2Code) {
         const q = getQuotaByLevelCodeTrack('level2', l2Code, track);
@@ -2084,7 +2105,7 @@ loadQuotaData() {
         });
       }
 
-      const l3Code = String(row.level3_code || '').trim();
+      const l3Code = normalizeHierarchyCode(row.level3_code, l2Code, 6);
       const l3Name = String(row.level3_name || '').trim();
       if (l3Code) {
         const q = getQuotaByLevelCodeTrack('level3', l3Code, track);
@@ -2608,4 +2629,3 @@ onPullDownRefresh() {
 
 
 });
-
