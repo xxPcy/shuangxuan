@@ -30,7 +30,11 @@ Page({
     acceptstate:false,//用于保存修改指标的按钮状态（初始状态为可选）
     unbind:false,//用于解绑导师按钮的状态设置（初始状态为可选）
     availableQuotas: [], // 存放有 pending_quota 的专业列表
+    availableQuotaGroups: [],
+    activeAvailableTrack: '全日制',
     editableQuotas: [], // 存放可编辑的名额列表（用于编辑弹窗）
+    editableQuotaGroups: [],
+    activeEditableTrack: '全日制',
     quotaTreeList: [], // 存放处理后的折叠树数据
     // 招生名额类别定义
     quotaCategories: [
@@ -611,6 +615,8 @@ searchTeacher() {
   if (!query) {
     this.setData({
       searchedTeacher: null,
+      availableQuotas: [],
+      availableQuotaGroups: [],
     });
     return;
   }
@@ -639,10 +645,14 @@ searchTeacher() {
               const usedQuota = Number(item.used_quota || 0);
               const pendingQuota = Number(item.pending_quota || 0);
               const confirmedRemaining = Math.max(maxQuota - usedQuota, 0);
+              const track = this.normalizeTrackValue(item.track);
               return {
                 code: item.code,
                 name: item.name,
                 type: item.type,
+                track,
+                trackText: this.getTrackText(track),
+                uiKey: `${String(item.code || '').trim()}__${track}`,
                 confirmed_remaining: confirmedRemaining,
                 pending_quota: pendingQuota,
                 total_available: confirmedRemaining + pendingQuota,
@@ -658,19 +668,27 @@ searchTeacher() {
               return aCode.length - bCode.length;
             }
             // 同级别按代码字母顺序排序
-            return aCode.localeCompare(bCode);
+            const codeCmp = aCode.localeCompare(bCode);
+            if (codeCmp !== 0) return codeCmp;
+            return this.getTrackOrder(a.track) - this.getTrackOrder(b.track);
           });
         }
+
+        const availableQuotaGroups = this.groupQuotasByTrack(availableQuotas);
+        const activeAvailableTrack = availableQuotaGroups[0] ? availableQuotaGroups[0].track : '全日制';
         
         this.setData({
           searchedTeacher: teacher,
           availableQuotas: availableQuotas,  // 排序后的专业列表
+          availableQuotaGroups,
+          activeAvailableTrack,
           searchedshow: true,  // 显示导师的信息
         });
       } else {
         this.setData({
           searchedTeacher: null,
           availableQuotas: [],
+          availableQuotaGroups: [],
         });
         wx.showToast({
           title: '没有找到该导师',
@@ -701,6 +719,22 @@ showTeacherEditPopup(event) {
         
         // 构建被退回指标的 Map（code__track -> 被退回数量）
         const rejectedQuotaMap = {};
+        const pushRejectedQuota = (code, track, pendingApproval, expectedLength) => {
+          const normalizedTrack = this.normalizeTrackValue(track);
+          const rawCode = String(code || '').trim();
+          if (!rawCode) return;
+          const value = Number(pendingApproval || 0);
+
+          const candidateCodes = [rawCode];
+          if (/^\d+$/.test(rawCode) && expectedLength) {
+            candidateCodes.push(rawCode.padStart(expectedLength, '0'));
+          }
+
+          candidateCodes.forEach((candidate) => {
+            const key = this.getQuotaUiKey({ code: candidate, track: normalizedTrack });
+            rejectedQuotaMap[key] = Math.max(Number(rejectedQuotaMap[key] || 0), value);
+          });
+        };
         
         // 处理一级专业
         if (totalQuotaData.level1_quota) {
@@ -710,9 +744,7 @@ showTeacherEditPopup(event) {
         const code = String(item.code || codeFromKey || '').trim();
         if (!code) return;
         const track = this.normalizeTrackValue(item.track || trackFromKey || '全日制');
-            const normalizedItem = { ...item, code, track };
-            const key = this.getQuotaUiKey(normalizedItem);
-            rejectedQuotaMap[key] = item.pending_approval || 0;
+            pushRejectedQuota(code, track, item.pending_approval, 2);
           });
         }
         // 处理二级专业
@@ -723,9 +755,7 @@ showTeacherEditPopup(event) {
         const code = String(item.code || codeFromKey || '').trim();
         if (!code) return;
         const track = this.normalizeTrackValue(item.track || trackFromKey || '全日制');
-            const normalizedItem = { ...item, code, track };
-            const key = this.getQuotaUiKey(normalizedItem);
-            rejectedQuotaMap[key] = item.pending_approval || 0;
+            pushRejectedQuota(code, track, item.pending_approval, 4);
           });
         }
         // 处理三级专业
@@ -736,9 +766,7 @@ showTeacherEditPopup(event) {
         const code = String(item.code || codeFromKey || '').trim();
         if (!code) return;
         const track = this.normalizeTrackValue(item.track || trackFromKey || '全日制');
-            const normalizedItem = { ...item, code, track };
-            const key = this.getQuotaUiKey(normalizedItem);
-            rejectedQuotaMap[key] = item.pending_approval || 0;
+            pushRejectedQuota(code, track, item.pending_approval, 6);
           });
         }
         
@@ -776,9 +804,13 @@ showTeacherEditPopup(event) {
           });
         }
         
+        const editableQuotaGroups = this.groupQuotasByTrack(editableQuotas);
+
         this.setData({
           selectedTeacher: teacher,
           editableQuotas: editableQuotas,
+          editableQuotaGroups,
+          activeEditableTrack: this.resolveActiveTrack(editableQuotaGroups),
           modify: true,
           acceptstate: false,  // 进入页面之后，就让按钮变为可用
         });
@@ -802,6 +834,7 @@ showTeacherEditPopup(event) {
   closeTeachermention:function(){
     this.setData({
       searchedshow:false,
+      availableQuotaGroups: [],
       showTeacherPasswordDialog:false,//关闭导师重置密码窗口
       modify:false,//关闭导师名额信息窗口
     })
@@ -810,6 +843,7 @@ showTeacherEditPopup(event) {
   closeTeachermodify:function(){
     this.setData({
       modify:false,//关闭导师的信息
+      editableQuotaGroups: [],
     })
   },
 
@@ -942,8 +976,11 @@ modifyQuota(e) {
   }
 
   // 更新页面数据
+  const editableQuotaGroups = this.groupQuotasByTrack(editableQuotas);
   this.setData({
-    editableQuotas: editableQuotas
+    editableQuotas: editableQuotas,
+    editableQuotaGroups,
+    activeEditableTrack: this.resolveActiveTrack(editableQuotaGroups, this.data.activeEditableTrack)
   });
 },
 
@@ -1143,6 +1180,7 @@ saveTeacherChanges() {
               selectedTeacher: null,
               modify: false,
               editableQuotas: [],
+              editableQuotaGroups: [],
               searchedshow: false  // 关闭导师信息显示
             });
             this.loadTeachers();  // 刷新导师数据
@@ -2241,6 +2279,47 @@ toggleRow(e) {
 
 
 
+
+getTrackOrder(track) {
+  const normalized = this.normalizeTrackValue(track);
+  const map = { '全日制': 1, '联培': 2, '非全日制': 3, '士兵': 4 };
+  return map[normalized] || 99;
+},
+
+groupQuotasByTrack(list = []) {
+  const groups = new Map();
+  ['全日制', '联培', '非全日制', '士兵'].forEach((track) => {
+    groups.set(track, { track, list: [] });
+  });
+
+  (list || []).forEach((item) => {
+    const track = this.normalizeTrackValue(item.track);
+    if (!groups.has(track)) groups.set(track, { track, list: [] });
+    groups.get(track).list.push(item);
+  });
+
+  return Array.from(groups.values())
+    .filter((group) => group.list.length > 0)
+    .sort((a, b) => this.getTrackOrder(a.track) - this.getTrackOrder(b.track));
+},
+
+resolveActiveTrack(groups = [], preferredTrack) {
+  const preferred = this.normalizeTrackValue(preferredTrack || '');
+  if (preferred && groups.some((group) => this.normalizeTrackValue(group.track) === preferred)) {
+    return preferred;
+  }
+  return groups[0] ? groups[0].track : '全日制';
+},
+
+toggleAvailableTrack(e) {
+  const track = this.normalizeTrackValue((e.currentTarget.dataset || {}).track);
+  this.setData({ activeAvailableTrack: track });
+},
+
+toggleEditableTrack(e) {
+  const track = this.normalizeTrackValue((e.currentTarget.dataset || {}).track);
+  this.setData({ activeEditableTrack: track });
+},
 
 normalizeTrackValue(track) {
   const t = String(track || '全日制').trim();

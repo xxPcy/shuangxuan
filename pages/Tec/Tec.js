@@ -18,6 +18,7 @@ Page({
     pendingChanges: [],
     quotaInfo: [], // 保存各类别名额信息（优先读取 quota_settings）
     quotaTrackSections: [],
+    activeQuotaTrack: '全日制',
     announcements: [], // 公告列表
   },
 
@@ -35,6 +36,14 @@ Page({
   getTrackOrder(track) {
     const map = { '全日制': 1, '联培': 2, '非全日制': 3, '士兵': 4 };
     return map[this.normalizeTrackValue(track)] || 99;
+  },
+
+  resolveActiveTrack(sections = [], preferredTrack) {
+    const normalizedPreferred = this.normalizeTrackValue(preferredTrack || '');
+    if (normalizedPreferred && sections.some((item) => this.normalizeTrackValue(item.track) === normalizedPreferred)) {
+      return normalizedPreferred;
+    }
+    return sections[0] ? this.normalizeTrackValue(sections[0].track) : '全日制';
   },
 
   /**
@@ -214,7 +223,11 @@ Page({
           .filter((section) => section.items.length > 0)
           .sort((a, b) => this.getTrackOrder(a.track) - this.getTrackOrder(b.track));
 
-        this.setData({ quotaInfo, quotaTrackSections });
+        this.setData({
+          quotaInfo,
+          quotaTrackSections,
+          activeQuotaTrack: this.resolveActiveTrack(quotaTrackSections, this.data.activeQuotaTrack)
+        });
       })
       .catch((err) => {
         console.error('加载名额数据失败:', err);
@@ -537,13 +550,9 @@ Page({
     this.handleApprovalAction(e, 'reject');
   },
 
-  toggleTrackSection(e) {
+  setActiveQuotaTrack(e) {
     const track = this.normalizeTrackValue((e.currentTarget.dataset || {}).track);
-    const sections = (this.data.quotaTrackSections || []).map((section) => {
-      if (this.normalizeTrackValue(section.track) !== track) return section;
-      return { ...section, expanded: !section.expanded };
-    });
-    this.setData({ quotaTrackSections: sections });
+    this.setData({ activeQuotaTrack: track });
   },
 
   handleApprovalAction(e, action) {
