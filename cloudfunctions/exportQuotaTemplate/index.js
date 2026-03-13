@@ -7,7 +7,6 @@ cloud.init({ env: 'cloud1-2gn42bha8f90b918' });
 async function getHierarchicalDataFromLogic(db) {
   const allData = [];
 
-  // 分批获取Logic表数据
   const countRes = await db.collection('Logic').count();
   const total = countRes.total;
   const batchSize = 100;
@@ -21,21 +20,24 @@ async function getHierarchicalDataFromLogic(db) {
     allData.push(...res.data);
   }
 
-  // 构建层级结构：一级 -> 二级 -> 三级
-  // 使用Map保持插入顺序
-  const level1Map = new Map(); // level1_code -> { name, code, level2Map }
+  // 结构：track -> level1Map(level1 -> level2Map(level2 -> level3List))
+  const trackMap = new Map();
 
   allData.forEach(item => {
+    const track = String(item.track || '全日制').trim() || '全日制';
     const l1Code = item.level1_code ? item.level1_code.trim() : '';
     const l1Name = item.level1_name ? item.level1_name.trim() : '';
     const l2Code = item.level2_code ? item.level2_code.trim() : '';
     const l2Name = item.level2_name ? item.level2_name.trim() : '';
     const l3Code = item.level3_code ? item.level3_code.trim() : '';
     const l3Name = item.level3_name ? item.level3_name.trim() : '';
-
     if (!l1Code) return;
 
-    // 初始化一级
+    if (!trackMap.has(track)) {
+      trackMap.set(track, new Map());
+    }
+    const level1Map = trackMap.get(track);
+
     if (!level1Map.has(l1Code)) {
       level1Map.set(l1Code, {
         code: l1Code,
@@ -46,7 +48,6 @@ async function getHierarchicalDataFromLogic(db) {
 
     const level1 = level1Map.get(l1Code);
 
-    // 初始化二级
     if (l2Code && !level1.level2Map.has(l2Code)) {
       level1.level2Map.set(l2Code, {
         code: l2Code,
@@ -55,20 +56,15 @@ async function getHierarchicalDataFromLogic(db) {
       });
     }
 
-    // 添加三级
     if (l2Code && l3Code) {
       const level2 = level1.level2Map.get(l2Code);
-      // 避免重复添加三级
       if (!level2.level3List.find(l3 => l3.code === l3Code)) {
-        level2.level3List.push({
-          code: l3Code,
-          name: l3Name
-        });
+        level2.level3List.push({ code: l3Code, name: l3Name });
       }
     }
   });
 
-  return level1Map;
+  return trackMap;
 }
 
 // 分批获取所有导师数据
@@ -91,16 +87,17 @@ async function getAllTeachers(db) {
 }
 
 // 构建单个导师的层级数据行（带合并信息）
-function buildTeacherRows(teacher, level1Map) {
+function buildTeacherRows(teacher, level1Map, track) {
   const rows = [];
   const teacherId = teacher.Id || ''; // 导师ID
   const teacherName = teacher.name || '';
+  const normalizedTrack = String(track || '全日制').trim();
 
   // 遍历一级分类
   level1Map.forEach((level1Data, l1Code) => {
     const level1Name = level1Data.name; // 如：工学
     const level1Code = level1Data.code; // 如：08
-    const level1Value = teacher[`level1_${l1Code}`] || 0;
+    const level1Value = 0;
 
     let isFirstLevel1Row = true;
 
@@ -108,7 +105,7 @@ function buildTeacherRows(teacher, level1Map) {
     level1Data.level2Map.forEach((level2Data, l2Code) => {
       const level2Name = level2Data.name; // 如：控制科学与工程
       const level2Code = level2Data.code; // 如：0811
-      const level2Value = teacher[`level2_${l2Code}`] || 0;
+      const level2Value = 0;
 
       let isFirstLevel2Row = true;
 
@@ -117,7 +114,7 @@ function buildTeacherRows(teacher, level1Map) {
         level2Data.level3List.forEach(level3Data => {
           const level3Name = level3Data.name; // 如：控制理论与控制工程
           const level3Code = level3Data.code; // 如：081101
-          const level3Value = teacher[`level3_${level3Data.code}`] || 0;
+          const level3Value = 0;
 
           rows.push({
             teacherId: isFirstLevel1Row ? teacherId : '',
@@ -131,7 +128,7 @@ function buildTeacherRows(teacher, level1Map) {
             level3Name: level3Name,
             level3Code: level3Code,
             level3Value: level3Value,
-            xuezhi: ''
+            xuezhi: normalizedTrack
           });
 
           isFirstLevel1Row = false;
@@ -151,7 +148,7 @@ function buildTeacherRows(teacher, level1Map) {
           level3Name: '',
           level3Code: '',
           level3Value: '',
-          xuezhi: ''
+          xuezhi: normalizedTrack
         });
 
         isFirstLevel1Row = false;
@@ -173,7 +170,7 @@ function buildTeacherRows(teacher, level1Map) {
         level3Name: '',
         level3Code: '',
         level3Value: '',
-        xuezhi: ''
+        xuezhi: normalizedTrack
       });
     }
   });
@@ -204,6 +201,18 @@ function calculateMerges(sheetData) {
 
     // 检测导师变化（通过ID判断）
     if (teacherId !== '' && teacherId !== prevTeacherId) {
+      // 先结束上一位导师内的一级/二级合并，避免跨导师错误合并
+      if (prevLevel2 !== null && i - 1 >= level2StartRow && i - 1 > level2StartRow) {
+        merges.push({ s: { r: level2StartRow, c: 5 }, e: { r: i - 1, c: 5 } });
+        merges.push({ s: { r: level2StartRow, c: 6 }, e: { r: i - 1, c: 6 } });
+        merges.push({ s: { r: level2StartRow, c: 7 }, e: { r: i - 1, c: 7 } });
+      }
+      if (prevLevel1 !== null && i - 1 >= level1StartRow && i - 1 > level1StartRow) {
+        merges.push({ s: { r: level1StartRow, c: 2 }, e: { r: i - 1, c: 2 } });
+        merges.push({ s: { r: level1StartRow, c: 3 }, e: { r: i - 1, c: 3 } });
+        merges.push({ s: { r: level1StartRow, c: 4 }, e: { r: i - 1, c: 4 } });
+      }
+
       // 合并之前的导师单元格
       if (prevTeacherId !== null && i - 1 >= teacherStartRow && i - 1 > teacherStartRow) {
         merges.push({ s: { r: teacherStartRow, c: 0 }, e: { r: i - 1, c: 0 } }); // 导师ID
@@ -211,6 +220,12 @@ function calculateMerges(sheetData) {
       }
       teacherStartRow = i;
       prevTeacherId = teacherId;
+
+      // 关键：导师切换时重置一级/二级状态，确保每位导师都有自己的一级栏
+      level1StartRow = i;
+      level2StartRow = i;
+      prevLevel1 = null;
+      prevLevel2 = null;
     }
 
     // 检测一级变化
@@ -266,7 +281,7 @@ exports.main = async (event, context) => {
   
   try {
     // 获取Logic表中的层级结构数据
-    const level1Map = await getHierarchicalDataFromLogic(db);
+    const trackMap = await getHierarchicalDataFromLogic(db);
     
     // 获取所有导师数据
     const teachers = await getAllTeachers(db);
@@ -275,82 +290,45 @@ exports.main = async (event, context) => {
       return { success: false, error: '没有导师数据' };
     }
 
-    if (level1Map.size === 0) {
+    if (trackMap.size === 0) {
       return { success: false, error: '没有指标分类数据' };
     }
 
-    // 构建普通表数据
-    // 表头：导师ID、导师姓名、一级名称、一级代码、新增指标数、二级名称、二级代码、新增指标数、三级名称、三级代码、新增指标数、学制
-    const normalSheetData = [
-      ['导师ID', '导师姓名', '一级名称', '一级代码', '新增指标数', '二级名称', '二级代码', '新增指标数', '三级名称', '三级代码', '新增指标数', '学制']
-    ];
+    // 按 Logic 中的类型(track)动态生成子表
+    const header = ['导师ID', '导师姓名', '一级名称', '一级代码', '新增指标数', '二级名称', '二级代码', '新增指标数', '三级名称', '三级代码', '新增指标数', '类型'];
+    const sheetsToBuild = [];
 
-    // 遍历每个导师，构建层级数据
-    teachers.forEach(teacher => {
-      const teacherRows = buildTeacherRows(teacher, level1Map);
-      teacherRows.forEach(row => {
-        normalSheetData.push([
-          String(row.teacherId),
-          String(row.teacherName),
-          String(row.level1Name),
-          String(row.level1Code),
-          String(row.level1Value),
-          String(row.level2Name),
-          String(row.level2Code),
-          String(row.level2Value),
-          String(row.level3Name),
-          String(row.level3Code),
-          String(row.level3Value),
-          String(row.xuezhi)
-        ]);
+    for (const [track, level1Map] of trackMap.entries()) {
+      const sheetData = [header];
+
+      teachers.forEach(teacher => {
+        const teacherRows = buildTeacherRows(teacher, level1Map, track);
+        teacherRows.forEach(row => {
+          sheetData.push([
+            String(row.teacherId),
+            String(row.teacherName),
+            String(row.level1Name),
+            String(row.level1Code),
+            String(row.level1Value),
+            String(row.level2Name),
+            String(row.level2Code),
+            String(row.level2Value),
+            String(row.level3Name),
+            String(row.level3Code),
+            String(row.level3Value),
+            String(row.xuezhi)
+          ]);
+        });
       });
-    });
 
-    // 计算合并单元格信息
-    const normalMerges = calculateMerges(normalSheetData);
-
-    // 构建基地表数据（内容与普通表相同）
-    const baseSheetData = [
-      ['导师ID', '导师姓名', '一级名称', '一级代码', '新增指标数', '二级名称', '二级代码', '新增指标数', '三级名称', '三级代码', '新增指标数', '学制']
-    ];
-
-    // 遍历每个导师，构建基地表层级数据
-    teachers.forEach(teacher => {
-      const teacherRows = buildTeacherRows(teacher, level1Map);
-      teacherRows.forEach(row => {
-        baseSheetData.push([
-          String(row.teacherId),
-          String(row.teacherName),
-          String(row.level1Name),
-          String(row.level1Code),
-          String(row.level1Value),
-          String(row.level2Name),
-          String(row.level2Code),
-          String(row.level2Value),
-          String(row.level3Name),
-          String(row.level3Code),
-          String(row.level3Value),
-          String(row.xuezhi)
-        ]);
+      sheetsToBuild.push({
+        name: `${track}表`,
+        data: sheetData,
+        options: { '!merges': calculateMerges(sheetData) }
       });
-    });
+    }
 
-    // 计算基地表合并单元格信息
-    const baseMerges = calculateMerges(baseSheetData);
-
-    // 生成 Excel 文件，包含两个子表
-    const buffer = xlsx.build([
-      { 
-        name: '普通表', 
-        data: normalSheetData,
-        options: { '!merges': normalMerges }
-      },
-      { 
-        name: '基地表', 
-        data: baseSheetData,
-        options: { '!merges': baseMerges }
-      }
-    ]);
+    const buffer = xlsx.build(sheetsToBuild);
 
     // 上传云存储
     // 清理文件名中的非法字符

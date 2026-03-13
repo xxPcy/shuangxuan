@@ -16,6 +16,17 @@ Page({
     showchosedstudent:false,//显示已经确认学生的详细窗口
   },
 
+  normalizeTrackValue(track) {
+    const raw = String(track || '全日制').trim();
+    const lower = raw.toLowerCase();
+    if (!raw) return '全日制';
+    if (raw === '联培' || lower === 'joint') return '联培';
+    if (raw === '非全日制' || raw === '非全' || lower === 'parttime') return '非全日制';
+    if (raw === '士兵' || lower === 'soldier') return '士兵';
+    if (raw === '全日制' || raw === '普通' || lower === 'regular') return '全日制';
+    return raw;
+  },
+
   // 页面加载时触发
   onLoad: function () {
     // console.log('onLoad 被触发'); // 确认页面是否加载
@@ -237,8 +248,8 @@ Page({
   
   
       const level3Code = latestStudent.level3_code || latestStudent.specializedCode || '';
-      const studentTrack = latestStudent.track || selectedStudent.track || 'regular'; // 学生的 track
-      const studentUseQuota = latestStudent.useQuota !== false; // 是否占用指标（默认占用）
+      const studentUseQuota = !!latestStudent.useQuota;
+      const studentTrack = this.normalizeTrackValue(latestStudent.selectedTrack || latestStudent.track || '全日制');
 
       if (!level3Code) {
         wx.hideLoading();
@@ -261,94 +272,89 @@ Page({
 
       let teacherUpdate;
 
-      if (!studentUseQuota) {
-        // 不占用指标的学生：不检查名额、不扣减 used_quota，直接绑定
-        teacherUpdate = db.collection('Teacher').doc(Tec._id).update({
-          data: {
-            prestudent: _.pull({
-              studentId: selectedStudent.studentId,
-            }),
-            student: _.push({
-              studentId: selectedStudent.studentId,
-              specialized: selectedStudent.specialized,
-              studentName: selectedStudent.studentName,
-              phoneNumber: selectedStudent.phoneNumber,
-              Id: selectedStudent.Id,
-              categoryKey: level3Code,
-              useQuota: false, // 标记不占用指标
-            }),
-          },
-        });
-      } else if (Array.isArray(Tec.quota_settings) && Tec.quota_settings.length > 0 && level3Code) {
+      // 新版：quota_settings 支持前缀层级名额（一级/二级/三级）
+      if (Array.isArray(Tec.quota_settings) && Tec.quota_settings.length > 0 && level3Code) {
         const allCandidates = Tec.quota_settings
           .map((item, index) => ({ item, index }))
           .filter(({ item }) => ['level1', 'level2', 'level3'].includes(item.type))
           .filter(({ item }) => String(level3Code).startsWith(String(item.code || '')))
-          .filter(({ item }) => (item.track || 'regular') === studentTrack); // 按 track 过滤
+          .filter(({ item }) => this.normalizeTrackValue(item.track) === studentTrack);
 
-        const findFirstAvailable = (candidates) =>
-          candidates.find(({ item }) => {
-            const total = Number(item.max_quota || 0);
-            const used = Number(item.used_quota || 0);
-            return total - used > 0;
+        if (studentUseQuota) {
+          const findFirstAvailable = (candidates) =>
+            candidates.find(({ item }) => {
+              const total = Number(item.max_quota || 0);
+              const used = Number(item.used_quota || 0);
+              return total - used > 0;
+            });
+
+          const level3Candidates = allCandidates.filter(({ item }) => item.type === 'level3');
+          const level2Candidates = allCandidates.filter(({ item }) => item.type === 'level2');
+          const level1Candidates = allCandidates.filter(({ item }) => item.type === 'level1');
+
+          let availableCandidate = findFirstAvailable(level3Candidates);
+          if (!availableCandidate) availableCandidate = findFirstAvailable(level2Candidates);
+          if (!availableCandidate) availableCandidate = findFirstAvailable(level1Candidates);
+
+          if (!availableCandidate) {
+            wx.hideLoading();
+            this.setData({ acceptstate: false });
+            wx.showToast({ title: '招生名额不足', icon: 'none' });
+            return;
+          }
+
+          const matchedQuota = availableCandidate.item;
+          const quotaIndex = availableCandidate.index;
+
+          teacherUpdate = db.collection('Teacher').doc(Tec._id).update({
+            data: {
+              prestudent: _.pull({ studentId: selectedStudent.studentId }),
+              [`quota_settings.${quotaIndex}.used_quota`]: _.inc(1),
+              student: _.push({
+                studentId: selectedStudent.studentId,
+                specialized: selectedStudent.specialized,
+                studentName: selectedStudent.studentName,
+                phoneNumber: selectedStudent.phoneNumber,
+                Id: selectedStudent.Id,
+                categoryKey: matchedQuota.code,
+                track: this.normalizeTrackValue(matchedQuota.track),
+              }),
+            },
           });
+        } else {
+          // 不占指标：只要该赛道有配置即可录取，不扣减名额
+          if (allCandidates.length === 0) {
+            wx.hideLoading();
+            this.setData({ acceptstate: false });
+            wx.showToast({ title: '导师未配置该赛道招生', icon: 'none' });
+            return;
+          }
 
-        // 先三级、后二级、再一级
-        const level3Candidates = allCandidates.filter(({ item }) => item.type === 'level3');
-        const level2Candidates = allCandidates.filter(({ item }) => item.type === 'level2');
-        const level1Candidates = allCandidates.filter(({ item }) => item.type === 'level1');
-
-        let availableCandidate = findFirstAvailable(level3Candidates);
-        if (!availableCandidate) {
-          availableCandidate = findFirstAvailable(level2Candidates);
-        }
-        if (!availableCandidate) {
-          availableCandidate = findFirstAvailable(level1Candidates);
-        }
-
-        if (!availableCandidate) {
-          wx.hideLoading();
-          this.setData({ acceptstate: false });
-          wx.showToast({
-            title: '招生名额不足',
-            icon: 'none',
+          teacherUpdate = db.collection('Teacher').doc(Tec._id).update({
+            data: {
+              prestudent: _.pull({ studentId: selectedStudent.studentId }),
+              student: _.push({
+                studentId: selectedStudent.studentId,
+                specialized: selectedStudent.specialized,
+                studentName: selectedStudent.studentName,
+                phoneNumber: selectedStudent.phoneNumber,
+                Id: selectedStudent.Id,
+                categoryKey: allCandidates[0].item.code,
+                track: this.normalizeTrackValue(allCandidates[0].item.track),
+              }),
+            },
           });
-          return;
         }
-
-        const matchedQuota = availableCandidate.item;
-        const quotaIndex = availableCandidate.index;
-
-        teacherUpdate = db.collection('Teacher').doc(Tec._id).update({
-          data: {
-            prestudent: _.pull({
-              studentId: selectedStudent.studentId,
-            }),
-            [`quota_settings.${quotaIndex}.used_quota`]: _.inc(1),
-            student: _.push({
-              studentId: selectedStudent.studentId,
-              specialized: selectedStudent.specialized,
-              studentName: selectedStudent.studentName,
-              phoneNumber: selectedStudent.phoneNumber,
-              Id: selectedStudent.Id,
-              categoryKey: matchedQuota.code,
-              useQuota: true, // 标记占用指标
-            }),
-          },
-        });
       } else {
         wx.hideLoading();
         this.setData({ acceptstate: false });
-        wx.showToast({
-          title: '导师缺少code名额配置',
-          icon: 'none',
-        });
+        wx.showToast({ title: '导师缺少code名额配置', icon: 'none' });
         return;
       }
   
       await Promise.all([studentUpdate, teacherUpdate]);
   
-      // **检查招生名额**（只对占用指标的学生检查，不占用指标的学生不影响名额）
+      // **检查招生名额**
       const teacherData = await db.collection('Teacher').doc(Tec_id).get();
       let quotaExhausted = false;
       if (studentUseQuota && Array.isArray(teacherData.data.quota_settings) && level3Code) {
@@ -356,7 +362,7 @@ Page({
           .filter((item) =>
             ['level1', 'level2', 'level3'].includes(item.type) &&
             String(level3Code).startsWith(String(item.code || '')) &&
-            (item.track || 'regular') === studentTrack
+            this.normalizeTrackValue(item.track) === studentTrack
           );
 
         quotaExhausted = matchedCandidates.length > 0 && matchedCandidates.every((item) =>

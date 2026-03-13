@@ -141,8 +141,20 @@ exports.main = async (event, context) => {
   try {
     console.log("Timeout check triggered with event:", event);
 
+    const quotaCategories = [
+      { label: '电子信息（专硕）', key: 'dzxxzs' },
+      { label: '控制科学与工程（学硕）', key: 'kongzhiX' },
+      { label: '电气工程（专硕）', key: 'dqgczs' },
+      { label: '电气工程（学硕）', key: 'dqgcxs' },
+      { label: '电子信息（联培）', key: 'dzxxlp' },
+      { label: '电气工程（联培）', key: 'dqgclp' },
+      { label: '电子信息(士兵计划)', key: 'dzxxsoldier' },
+      { label: '电子信息(非全日制)', key: 'dzxxpartTime' },
+      { label: '电气工程(士兵计划)', key: 'dqgcsoldier' },
+      { label: '电气工程(非全日制)', key: 'dqgcpartTime' }
+    ];
     // const timeoutDuration = 1 * 2 * 60 * 1000; // 2分钟超时
-    // const timeoutDuration = 24 * 60 * 60 * 1000; // 24小时超时
+    // const timeoutDuration = 24 * 60 * 60 * 1000; // 2分钟超时
     // const timeoutDuration = 4 * 60 * 1000; // 4分钟超时
     const timeoutDuration = 48 * 60 * 60 * 1000; // 48小时超时
     const currentTimestamp = new Date().getTime();
@@ -166,19 +178,17 @@ exports.main = async (event, context) => {
         const teacherId = teacher._id;
         console.log(`检查超时: ${teacher.name}, ID: ${teacherId}`);
 
-        const quotaSettings = teacher.quota_settings || [];
-        const approvalTimestamp = teacher.approval_timestamp || 0;
         const autoRejectPromises = [];
         let hasPending = false;
 
-        // 遍历 quota_settings 数组检查 pending_quota
-        for (const quota of quotaSettings) {
-          const pendingValue = quota.pending_quota || 0;
+        for (const category of quotaCategories) {
+          const pendingKey = `pending_${category.key}`;
+          const pendingValue = teacher[pendingKey] || 0;
+          const approvalTimestamp = teacher.approval_timestamp || 0;
 
           if (pendingValue > 0) {
             hasPending = true;
             const elapsedTime = approvalTimestamp ? currentTimestamp - approvalTimestamp : timeoutDuration + 1;
-            
             if (elapsedTime > timeoutDuration) {
               // 再次确认状态，避免重复退回
               const teacherCheck = await db.collection('Teacher').doc(teacherId).get();
@@ -186,92 +196,51 @@ exports.main = async (event, context) => {
                 console.log(`导师 ${teacher.name} 状态已变更，跳过`);
                 continue;
               }
-
-              // 检查该条目的 pending_quota 是否已清零
-              const currentQuotaSettings = teacherCheck.data.quota_settings || [];
-              const currentQuota = currentQuotaSettings.find(q => 
-                q.code === quota.code && (q.track || 'regular') === (quota.track || 'regular')
-              );
-              if (!currentQuota || currentQuota.pending_quota === 0) {
-                console.log(`导师 ${teacher.name}, ${quota.code}|${quota.track} 已清零，跳过`);
+              if (teacherCheck.data[pendingKey] === 0) {
+                console.log(`导师 ${teacher.name}, ${category.key} 已清零，跳过`);
                 continue;
               }
 
-              const code = quota.code;
-              const track = quota.track || 'regular';
-              const quotaType = quota.type; // level1, level2, level3
-
-              console.log(`检测到超时: ${teacher.name}, code=${code}, track=${track}, 名额: ${pendingValue}`);
-
-              // 清空该条目的 pending_quota
-              const quotaIndex = currentQuotaSettings.findIndex(q => 
-                q.code === code && (q.track || 'regular') === track
-              );
-              if (quotaIndex >= 0) {
-                const newQuotaSettings = [...currentQuotaSettings];
-                newQuotaSettings[quotaIndex] = {
-                  ...newQuotaSettings[quotaIndex],
-                  pending_quota: 0
-                };
-
-                autoRejectPromises.push(
-                  db.collection('Teacher').doc(teacherId).update({
-                    data: { quota_settings: newQuotaSettings }
-                  }).then(() => {
-                    // 退回名额到 TotalQuota
-                    const quotaFieldMap = {
-                      'level1': 'level1_quota',
-                      'level2': 'level2_quota', 
-                      'level3': 'level3_quota'
-                    };
-                    const quotaField = quotaFieldMap[quotaType];
-                    const quotaKey = `${code}|${track}`;
-
-                    if (quotaField) {
-                      return db.collection('TotalQuota').doc('totalquota').get()
-                        .then((totalRes) => {
-                          const levelQuota = totalRes.data[quotaField] || {};
-                          const codeQuota = levelQuota[quotaKey] || levelQuota[code] || {};
-                          const actualKey = levelQuota[quotaKey] ? quotaKey : code;
-
-                          return db.collection('TotalQuota').doc('totalquota').update({
-                            data: {
-                              [`${quotaField}.${actualKey}.pending_approval`]: (codeQuota.pending_approval || 0) + pendingValue
-                            }
-                          });
-                        });
+              console.log(`检测到超时: ${teacher.name}, ${category.key}, 名额: ${pendingValue}`);
+              autoRejectPromises.push(
+                db.collection('TotalQuota').doc('totalquota').update({
+                  data: { [`${category.key}_current`]: db.command.inc(pendingValue) }
+                }).then(() => {
+                  console.log(`退回 ${pendingValue} 到 ${category.key}_current`);
+                  return db.collection('Teacher').doc(teacherId).update({
+                    data: { [pendingKey]: 0 }
+                  });
+                }).then(() => {
+                  console.log(`清空 ${teacherId} 的 ${pendingKey}`);
+                  return db.collection('RejectedQuota').add({
+                    data: {
+                      teacherName: teacher.name,
+                      teacherId: teacher.Id,
+                      label: category.label,
+                      key: category.key,
+                      rejectedValue: pendingValue,
+                      reason: '超时',
+                      timestamp: new Date()
                     }
-                  }).then(() => {
-                    console.log(`退回 ${pendingValue} 到 TotalQuota, code=${code}, track=${track}`);
-                    return db.collection('RejectedQuota').add({
-                      data: {
-                        teacherName: teacher.name,
-                        teacherId: teacher.Id,
-                        code: code,
-                        track: track,
-                        label: quota.name,
-                        rejectedValue: pendingValue,
-                        reason: '超时',
-                        timestamp: new Date()
-                      }
-                    });
-                  }).catch(err => {
-                    console.error(`退回失败: ${teacherId}, code=${code}, track=${track}, 错误:`, err);
-                  })
-                );
-              }
+                  });
+                }).catch(err => {
+                  console.error(`退回失败: ${teacherId}, ${category.key}, 错误:`, err);
+                })
+              );
             }
           }
         }
 
         await Promise.all(autoRejectPromises);
-        
         if (hasPending) {
-          // 检查是否所有 pending_quota 都已清零
           const updatedTeacher = await db.collection('Teacher').doc(teacherId).get();
-          const updatedQuotaSettings = updatedTeacher.data.quota_settings || [];
-          const allCleared = updatedQuotaSettings.every(q => (q.pending_quota || 0) === 0);
-          
+          let allCleared = true;
+          for (const category of quotaCategories) {
+            if (updatedTeacher.data[`pending_${category.key}`] > 0) {
+              allCleared = false;
+              break;
+            }
+          }
           if (allCleared) {
             console.log(`导师 ${teacher.name} 所有名额已清空，更新状态为 rejected`);
             await db.collection('Teacher').doc(teacherId).update({

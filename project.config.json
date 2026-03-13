@@ -22,7 +22,7 @@
         "tabSize": 4
     },
     "cloudfunctionTemplateRoot": "cloudfunctionTemplate/",
-    "libVersion": "3.13.1",
+    "libVersion": "3.14.2",
     "packOptions": {
         "ignore": [],
         "include": []

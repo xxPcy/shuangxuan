@@ -92,35 +92,28 @@ exports.main = async (event, context) => {
     const logicRes = await db.collection('Logic').limit(1000).get();
     const logicList = logicRes.data;
 
-    // 2. 提取去重的所有代码 (使用 Map 保证代码唯一)
-    // 结构：Code -> { code, name, type }
+    // 2. 提取去重的所有代码（按 层级+代码+赛道 去重）
+    // 结构："level__code__track" -> { code, name, type, track }
     const quotaMap = new Map();
+    const pushQuota = (type, code, name, track) => {
+      const normalizedCode = String(code || '').trim();
+      if (!normalizedCode) return;
+      const normalizedTrack = String(track || '全日制').trim();
+      const key = `${type}__${normalizedCode}__${normalizedTrack}`;
+      if (quotaMap.has(key)) return;
+      quotaMap.set(key, {
+        code: normalizedCode,
+        name: String(name || '').trim(),
+        type,
+        track: normalizedTrack
+      });
+    };
 
     logicList.forEach(item => {
-      // 提取一级
-      if (item.level1_code && !quotaMap.has(item.level1_code)) {
-        quotaMap.set(item.level1_code, {
-          code: String(item.level1_code).trim(),
-          name: String(item.level1_name).trim(),
-          type: 'level1'
-        });
-      }
-      // 提取二级
-      if (item.level2_code && !quotaMap.has(item.level2_code)) {
-        quotaMap.set(item.level2_code, {
-          code: String(item.level2_code).trim(),
-          name: String(item.level2_name).trim(),
-          type: 'level2'
-        });
-      }
-      // 提取三级
-      if (item.level3_code && !quotaMap.has(item.level3_code)) {
-        quotaMap.set(item.level3_code, {
-          code: String(item.level3_code).trim(),
-          name: String(item.level3_name).trim(),
-          type: 'level3'
-        });
-      }
+      const track = String(item.track || '全日制').trim();
+      pushQuota('level1', item.level1_code, item.level1_name, track);
+      pushQuota('level2', item.level2_code, item.level2_name, track);
+      pushQuota('level3', item.level3_code, item.level3_name, track);
     });
 
     // 3. 生成标准的初始化模板数组
@@ -129,7 +122,6 @@ exports.main = async (event, context) => {
       .sort((a, b) => a.code.localeCompare(b.code))
       .map(item => ({
         ...item,
-        track: 'regular',  // 默认为普通类型
         max_quota: 0,      // 总分配名额
         pending_quota: 0,  // 待审核名额 (初始为0，管理员分配后增加)
         used_quota: 0      // 已招收名额

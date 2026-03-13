@@ -7,7 +7,9 @@ Page({
     Stu: {},
     StuID: '',
     teacherID: '',
-    quotaButtons: []
+    quotaButtons: [],
+    useQuota: true,
+    studentTrack: '全日制'
   },
 
   onLoad(options) {
@@ -35,7 +37,9 @@ Page({
         status,
         Stu: student,
         StuID: student.Id || '',
-        teacher
+        teacher,
+        useQuota: !!student.useQuota,
+        studentTrack: student.track || '全日制'
       });
 
       const quotaButtons = this.buildQuotaButtons(logicRows, teacher, student, status);
@@ -50,48 +54,70 @@ Page({
     });
   },
 
+  normalizeTrackValue(value) {
+    const raw = String(value || '').trim();
+    const lower = raw.toLowerCase();
+    if (!raw) return '全日制';
+    if (['regular', '普通', '全日制'].includes(lower) || raw === '普通' || raw === '全日制') return '全日制';
+    if (['joint', '联培'].includes(lower) || raw === '联培') return '联培';
+    if (['parttime', '非全', '非全日制'].includes(lower) || raw === '非全' || raw === '非全日制') return '非全日制';
+    if (['soldier', '士兵'].includes(lower) || raw === '士兵') return '士兵';
+    return raw;
+  },
+
+  getTrackText(track) {
+    return this.normalizeTrackValue(track);
+  },
+
+  getTrackOrder(track) {
+    const t = this.normalizeTrackValue(track);
+    const order = { '全日制': 1, '联培': 2, '非全日制': 3, '士兵': 4 };
+    return order[t] || 99;
+  },
+
+  getAllowedTracksByStudentTrack(track) {
+    const t = this.normalizeTrackValue(track);
+    if (t === '非全日制') return ['非全日制'];
+    if (t === '全日制') return ['全日制', '联培'];
+    return [t];
+  },
+
   buildQuotaButtons(logicRows, teacher, student, status) {
     const quotaSettings = Array.isArray(teacher.quota_settings) ? teacher.quota_settings : [];
     const studentCode = String(student.specializedCode || student.level3_code || '').trim();
-    const studentTrack = student.track || 'regular'; // 学生的 track
-
-    console.log('=== buildQuotaButtons 调试 ===');
-    console.log('学生专业代码:', studentCode);
-    console.log('学生 track:', studentTrack);
-    console.log('学生状态:', status);
-    console.log('导师 quota_settings 条目数:', quotaSettings.length);
-    
-    // 打印导师有名额的条目
-    const nonZeroQuotas = quotaSettings.filter(q => (q.max_quota || 0) > 0 || (q.pending_quota || 0) > 0);
-    console.log('导师有名额的条目:', nonZeroQuotas.map(q => 
-      `${q.code}|${q.track || 'regular'} max=${q.max_quota} used=${q.used_quota} pending=${q.pending_quota}`
-    ));
+    const studentTrack = this.normalizeTrackValue(student.track || '全日制');
+    const allowedTracks = this.getAllowedTracksByStudentTrack(studentTrack);
+    const useQuota = !!student.useQuota;
 
     const level3Map = new Map();
     logicRows.forEach((row) => {
       const code = String(row.level3_code || '').trim();
       const name = String(row.level3_name || '').trim();
-      if (!code || !name || level3Map.has(code)) return;
-      level3Map.set(code, { code, name });
+      const track = this.normalizeTrackValue(row.track || '全日制');
+      if (!code || !name) return;
+      const key = `${code}__${track}`;
+      if (level3Map.has(key)) return;
+      level3Map.set(key, {
+        code,
+        track,
+        baseName: name,
+        displayName: `${name}（${this.getTrackText(track)}）`
+      });
     });
 
-    const list = Array.from(level3Map.values()).sort((a, b) => a.code.localeCompare(b.code));
+    const list = Array.from(level3Map.values()).sort((a, b) => {
+      const codeCmp = String(a.code || '').localeCompare(String(b.code || ''));
+      if (codeCmp !== 0) return codeCmp;
+      return this.getTrackOrder(a.track) - this.getTrackOrder(b.track);
+    });
 
     return list.map((item) => {
-      const studentUseQuota = student.useQuota !== false; // 默认占用指标
-
-      // 不占用指标的学生：不限制 track，只要导师有该专业代码的任意配置即可
-      // 占用指标的学生：只匹配与学生 track 相同的 quota_settings 条目
       const matchedEntries = quotaSettings.filter((quota) => {
         if (!['level1', 'level2', 'level3'].includes(quota.type)) return false;
         const quotaCode = String(quota.code || '').trim();
         if (!quotaCode || !item.code.startsWith(quotaCode)) return false;
-        // 占用指标的学生需要 track 匹配；不占用指标的学生不限制 track
-        if (studentUseQuota) {
-          const quotaTrack = quota.track || 'regular';
-          return quotaTrack === studentTrack;
-        }
-        return true;
+        const quotaTrack = this.normalizeTrackValue(quota.track || '全日制');
+        return quotaTrack === item.track;
       });
 
       const approvedRemaining = matchedEntries.reduce((sum, quota) => {
@@ -100,14 +126,16 @@ Page({
         return sum + Math.max(maxQuota - usedQuota, 0);
       }, 0);
 
-      const isOwnMajor = studentCode && item.code === studentCode;
-      // 不占用指标的学生：只要是自己的专业且导师有该专业配置就可以选
-      // 占用指标的学生：还需要 approvedRemaining > 0
-      const canSelect = status === 'chosing' && isOwnMajor && (studentUseQuota ? approvedRemaining > 0 : matchedEntries.length > 0);
+      const recruited = matchedEntries.length > 0;
+      const isOwnMajor = studentCode && item.code === studentCode && allowedTracks.includes(item.track);
+      const canSelect = status === 'chosing' && isOwnMajor && (useQuota ? approvedRemaining > 0 : recruited);
 
       return {
+        key: `${item.code}__${item.track}`,
         code: item.code,
-        name: item.name,
+        track: item.track,
+        name: item.displayName,
+        baseName: item.baseName,
         approvedRemaining,
         isOwnMajor,
         disabled: !canSelect,
@@ -119,6 +147,7 @@ Page({
   selectTeacherByCategory(e) {
     const selectedCode = String(e.currentTarget.dataset.code || '').trim();
     const selectedName = String(e.currentTarget.dataset.name || '').trim();
+    const selectedTrack = this.normalizeTrackValue(e.currentTarget.dataset.track || '全日制');
     const disabled = !!e.currentTarget.dataset.disabled;
 
     if (!selectedCode || !selectedName) {
@@ -139,7 +168,7 @@ Page({
       content: `确定申请导师 ${teacher.name} 的 ${selectedName}（${selectedCode}）名额吗？`,
       success: (res) => {
         if (res.confirm) {
-          this.submitSelection(student, teacher, selectedCode, selectedName);
+          this.submitSelection(student, teacher, selectedCode, selectedName, selectedTrack);
         }
       }
     });
@@ -158,15 +187,15 @@ Page({
     });
   },
 
-  submitSelection(student, teacher, selectedCode, selectedName) {
+  submitSelection(student, teacher, selectedCode, selectedName, selectedTrack) {
     const _ = db.command;
-    const studentTrack = student.track || 'regular'; // 学生的 track
 
     db.collection('Stu').doc(student._id).update({
       data: {
-        preselection: [teacher.name, teacher._id,selectedName,selectedCode],
+        preselection: [teacher.name, teacher._id],
         status: 'pending',
-        selectedField: selectedCode
+        selectedField: selectedCode,
+        selectedTrack: selectedTrack
       }
     }).then(() => {
       wx.showToast({ title: '申请成功，等待导师审核', icon: 'success' });
@@ -178,8 +207,7 @@ Page({
             studentName: student.name,
             specialized: selectedName,
             specializedCode: selectedCode,
-            track: studentTrack, // 传递学生的 track
-            useQuota: student.useQuota !== false, // 是否占用指标（默认占用）
+            track: selectedTrack,
             status: 'pending',
             phoneNumber: student.phoneNumber,
             description: student.description,

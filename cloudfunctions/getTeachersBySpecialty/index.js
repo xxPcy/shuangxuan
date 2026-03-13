@@ -10,10 +10,10 @@ const _ = db.command;
 exports.main = async (event, context) => {
   const {
     specializedCode, // 学生三级专业代码
-    studentTrack = 'regular', // 学生的 track
     page = 1,
     pageSize = 20,
-    useQuota = false // true: 占用指标（只看已审批可用名额）；false: 不占用指标（看历史分配链路）
+    useQuota = false, // true: 占用指标（只看已审批可用名额）；false: 不占用指标（看历史分配链路）
+    track = '全日制'
   } = event;
 
   const rawSpecializedCode = String(specializedCode || '').trim();
@@ -22,6 +22,32 @@ exports.main = async (event, context) => {
     if (!rawTargetCode) return false;
     return rawSpecializedCode.startsWith(rawTargetCode);
   };
+
+
+  const normalizeTrack = (value) => {
+    const raw = String(value || '').trim();
+    const lower = raw.toLowerCase();
+    if (!raw) return '全日制';
+    if (['regular', '普通', '全日制'].includes(lower) || raw === '普通' || raw === '全日制') return '全日制';
+    if (['joint', '联培'].includes(lower) || raw === '联培') return '联培';
+    if (['parttime', '非全', '非全日制'].includes(lower) || raw === '非全' || raw === '非全日制') return '非全日制';
+    if (['soldier', '士兵'].includes(lower) || raw === '士兵') return '士兵';
+    return raw;
+  };
+
+  const normalizedTrack = normalizeTrack(track || '全日制');
+  const getAllowedTracks = (studentTrack) => {
+    // 非全严格匹配非全
+    if (studentTrack === '非全日制') return ['非全日制'];
+    // 全日制可以选全日制和联培（按业务规则）
+    if (studentTrack === '全日制') return ['全日制', '联培'];
+    // 其余类型默认严格同类型
+    return [studentTrack];
+  };
+  const allowedTracks = getAllowedTracks(normalizedTrack);
+
+  // 严格按 Logic 控制可用赛道：只有该三级专业在 Logic 中配置过的 track 才允许参与匹配
+  const allowedCodesByTrack = new Map(); // track -> Set([level3, level2, level1])
 
   if (!rawSpecializedCode) {
     return {
@@ -32,6 +58,25 @@ exports.main = async (event, context) => {
   }
 
   try {
+    const logicRowsRes = await db.collection('Logic').where({
+      level3_code: rawSpecializedCode,
+      track: _.in(allowedTracks)
+    }).limit(100).get();
+
+    (logicRowsRes.data || []).forEach((row) => {
+      const rowTrack = normalizeTrack(row.track || '全日制');
+      if (!allowedCodesByTrack.has(rowTrack)) {
+        allowedCodesByTrack.set(rowTrack, new Set());
+      }
+      const codeSet = allowedCodesByTrack.get(rowTrack);
+      const level3 = String(row.level3_code || '').trim();
+      const level2 = String(row.level2_code || '').trim();
+      const level1 = String(row.level1_code || '').trim();
+      if (level3) codeSet.add(level3);
+      if (level2) codeSet.add(level2);
+      if (level1) codeSet.add(level1);
+    });
+
     const quotaHoldersRes = await db.collection('QuotaHolders').doc('quotaholder').get();
     if (!quotaHoldersRes.data) {
       return {
@@ -46,16 +91,24 @@ exports.main = async (event, context) => {
     const level2Holders = quotaHolders.level2_holders || {};
     const level3Holders = quotaHolders.level3_holders || {};
 
+    if (useQuota && allowedCodesByTrack.size === 0) {
+      return {
+        success: true,
+        data: [],
+        total: 0,
+        hasMore: false,
+        page,
+        pageSize
+      };
+    }
+
     // 1) 按专业代码前缀聚合“曾经被分配过该专业链路”的导师候选池
     const candidateMap = new Map(); // teacherId -> { teacherId, teacherName, historyQuota }
 
-    // QuotaHolders key 可能是 "code|track" 格式或纯 code 格式，需兼容
     const collectFromLevel = (holders) => {
-      Object.keys(holders).forEach((holderKey) => {
-        // 从 key 中提取纯 code 部分（兼容 "code|track" 和纯 "code" 两种格式）
-        const pureCode = holderKey.includes('|') ? holderKey.split('|')[0] : holderKey;
-        if (!codeMatches(pureCode)) return;
-        const teacherList = holders[holderKey] || [];
+      Object.keys(holders).forEach((code) => {
+        if (!codeMatches(code)) return;
+        const teacherList = holders[code] || [];
         teacherList.forEach((t) => {
           const teacherId = String(t.teacherId || '').trim();
           if (!teacherId) return;
@@ -100,9 +153,13 @@ exports.main = async (event, context) => {
         if (!['level1', 'level2', 'level3'].includes(item.type)) return;
         const code = String(item.code || '').trim();
         if (!codeMatches(code)) return;
-        // 按学生 track 过滤：只匹配相同 track 的名额
-        const quotaTrack = item.track || 'regular';
-        if (quotaTrack !== studentTrack) return;
+        if (useQuota) {
+          const itemTrack = normalizeTrack(item.track || '全日制');
+          if (!allowedTracks.includes(itemTrack)) return;
+          const allowedCodeSet = allowedCodesByTrack.get(itemTrack);
+          // 该 track 未在 Logic 给当前三级专业配置，或 code 不在该 track 的专业链路里，直接跳过
+          if (!allowedCodeSet || !allowedCodeSet.has(code)) return;
+        }
         const maxQuota = Number(item.max_quota || 0);
         const usedQuota = Number(item.used_quota || 0);
         const remaining = Math.max(maxQuota - usedQuota, 0);
