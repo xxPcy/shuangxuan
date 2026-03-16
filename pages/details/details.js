@@ -8,6 +8,7 @@ Page({
     StuID: '',
     teacherID: '',
     quotaButtons: [],
+    groupedQuota: [],
     useQuota: true,
     studentTrack: '全日制'
   },
@@ -43,7 +44,8 @@ Page({
       });
 
       const quotaButtons = this.buildQuotaButtons(logicRows, teacher, student, status);
-      this.setData({ quotaButtons });
+      const groupedQuota = this.groupQuotaButtons(quotaButtons);
+      this.setData({ quotaButtons, groupedQuota });
 
       if (status === 'pending' || status === 'chosed') {
         wx.showToast({ title: '您已选择过导师', icon: 'none' });
@@ -80,6 +82,35 @@ Page({
     if (t === '非全日制') return ['非全日制'];
     if (t === '全日制') return ['全日制', '联培'];
     return [t];
+  },
+
+  // 将所有按钮按赛道分组
+  groupQuotaButtons(buttons) {
+    const tracks = ['全日制', '联培', '非全日制', '士兵'];
+    const groups = tracks.map(track => {
+      // 默认非全日制和士兵赛道收起，其他展开
+      const expanded = (track === '全日制' || track === '联培');
+      return {
+        trackName: track,
+        expanded: expanded,
+        items: buttons.filter(btn => btn.track === track)
+      };
+    });
+    // 过滤掉完全没有按钮的赛道
+    return groups.filter(g => g.items.length > 0);
+  },
+
+  // 切换折叠状态
+  toggleCollapse(e) {
+    const targetTrack = e.currentTarget.dataset.track;
+    const { groupedQuota } = this.data;
+    const newGrouped = groupedQuota.map(group => {
+      if (group.trackName === targetTrack) {
+        return { ...group, expanded: !group.expanded };
+      }
+      return group;
+    });
+    this.setData({ groupedQuota: newGrouped });
   },
 
   buildQuotaButtons(logicRows, teacher, student, status) {
@@ -222,7 +253,8 @@ Page({
         disabled: true,
         color: '#d3d3d3'
       }));
-      this.setData({ quotaButtons: buttons });
+      const groupedQuota = this.groupQuotaButtons(buttons);
+      this.setData({ quotaButtons: buttons, groupedQuota });
     }).catch((err) => {
       console.error('提交选择失败', err);
       wx.showToast({ title: '提交失败，请重试', icon: 'none' });

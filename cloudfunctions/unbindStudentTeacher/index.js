@@ -42,9 +42,9 @@ exports.main = async (event) => {
       throw new Error('导师的学生列表中找不到该学生');
     }
 
-    const updatedStudents = students.filter((s) => String(s.Id || '') !== String(studentId));
-    const useQuota = !!student.useQuota;
-    const categoryKey = String(matchedStudent.categoryKey || '').trim();
+      const updatedStudents = students.filter((s) => String(s.Id || '') !== String(studentId));
+      const useQuota = true; // 现在所有类型学生都走指标扣减逻辑，因此解绑时都要退还名额
+      const categoryKey = String(matchedStudent.categoryKey || '').trim();
     const studentTrack = normalizeTrackValue(matchedStudent.track || student.selectedTrack || student.track || '全日制');
 
     let updatedQuotaSettings = Array.isArray(teacher.quota_settings) ? [...teacher.quota_settings] : [];

@@ -247,11 +247,9 @@ Page({
       }
   
   
-      const level3Code = latestStudent.level3_code || latestStudent.specializedCode || '';
-      const studentUseQuota = !!latestStudent.useQuota;
-      const studentTrack = this.normalizeTrackValue(latestStudent.selectedTrack || latestStudent.track || '全日制');
-
-      if (!level3Code) {
+        const level3Code = latestStudent.level3_code || latestStudent.specializedCode || '';
+        const studentUseQuota = true; // 现在所有学生都统一走到扣减名额的逻辑
+        const studentTrack = this.normalizeTrackValue(latestStudent.selectedTrack || latestStudent.track || '全日制');      if (!level3Code) {
         wx.hideLoading();
         this.setData({ acceptstate: false });
         wx.showToast({
@@ -355,10 +353,10 @@ Page({
       await Promise.all([studentUpdate, teacherUpdate]);
   
       // **检查招生名额**
-      const teacherData = await db.collection('Teacher').doc(Tec_id).get();
-      let quotaExhausted = false;
-      if (studentUseQuota && Array.isArray(teacherData.data.quota_settings) && level3Code) {
-        const matchedCandidates = teacherData.data.quota_settings
+        const teacherData = await db.collection('Teacher').doc(Tec_id).get();
+        let quotaExhausted = false;
+        if (Array.isArray(teacherData.data.quota_settings) && level3Code) {
+          const matchedCandidates = teacherData.data.quota_settings
           .filter((item) =>
             ['level1', 'level2', 'level3'].includes(item.type) &&
             String(level3Code).startsWith(String(item.code || '')) &&

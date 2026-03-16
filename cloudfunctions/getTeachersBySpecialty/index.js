@@ -91,7 +91,7 @@ exports.main = async (event, context) => {
     const level2Holders = quotaHolders.level2_holders || {};
     const level3Holders = quotaHolders.level3_holders || {};
 
-    if (useQuota && allowedCodesByTrack.size === 0) {
+    if (allowedCodesByTrack.size === 0) {
       return {
         success: true,
         data: [],
@@ -106,10 +106,20 @@ exports.main = async (event, context) => {
     const candidateMap = new Map(); // teacherId -> { teacherId, teacherName, historyQuota }
 
     const collectFromLevel = (holders) => {
-      Object.keys(holders).forEach((code) => {
-        if (!codeMatches(code)) return;
-        const teacherList = holders[code] || [];
+      Object.keys(holders).forEach((key) => {
+        // key 可能是 "0854", 或者 "0854|非全日制", 或者 "0854__非全日制"
+        const parts = key.includes('__') ? key.split('__') : key.split('|');
+        const pureCode = parts[0];
+        const pureTrack = parts.length > 1 ? normalizeTrack(parts[1]) : '全日制';
+
+        if (!codeMatches(pureCode)) return;
+        
+        // 如果数据包含赛道信息，则历史查询也需要符合学生允许的赛道限制
+        if (parts.length > 1 && !allowedTracks.includes(pureTrack)) return;
+
+        const teacherList = holders[key] || [];
         teacherList.forEach((t) => {
+          if (!t || typeof t !== 'object') return;
           const teacherId = String(t.teacherId || '').trim();
           if (!teacherId) return;
           if (!candidateMap.has(teacherId)) {
@@ -153,13 +163,11 @@ exports.main = async (event, context) => {
         if (!['level1', 'level2', 'level3'].includes(item.type)) return;
         const code = String(item.code || '').trim();
         if (!codeMatches(code)) return;
-        if (useQuota) {
-          const itemTrack = normalizeTrack(item.track || '全日制');
-          if (!allowedTracks.includes(itemTrack)) return;
-          const allowedCodeSet = allowedCodesByTrack.get(itemTrack);
-          // 该 track 未在 Logic 给当前三级专业配置，或 code 不在该 track 的专业链路里，直接跳过
-          if (!allowedCodeSet || !allowedCodeSet.has(code)) return;
-        }
+        const itemTrack = normalizeTrack(item.track || '全日制');
+        if (!allowedTracks.includes(itemTrack)) return;
+        const allowedCodeSet = allowedCodesByTrack.get(itemTrack);
+        // 该 track 未在 Logic 给当前三级专业配置，或 code 不在该 track 的专业链路里，直接跳过
+        if (!allowedCodeSet || !allowedCodeSet.has(code)) return;
         const maxQuota = Number(item.max_quota || 0);
         const usedQuota = Number(item.used_quota || 0);
         const remaining = Math.max(maxQuota - usedQuota, 0);
@@ -172,6 +180,9 @@ exports.main = async (event, context) => {
       const firstAvailableCode = [level3Code, level2Code, level1Code].find((code) => code && Number(approvedByCode.get(code) || 0) > 0) || '';
       const matchedApprovedQuota = firstAvailableCode ? Number(approvedByCode.get(firstAvailableCode) || 0) : 0;
 
+      // 所有类型的学生现在全部采用正常的扣减指标逻辑，必须剩余名额大于0才能显示该名额
+      const matchedQuota = matchedApprovedQuota; 
+
       const teacherId = String(teacher.Id || '').trim();
       const history = candidateMap.get(teacherId);
 
@@ -180,21 +191,13 @@ exports.main = async (event, context) => {
         matchedCode: firstAvailableCode || rawSpecializedCode,
         matchedConfirmedQuota: matchedApprovedQuota,
         matchedPendingQuota: 0,
-        matchedQuota: matchedApprovedQuota,
+        matchedQuota: matchedQuota,
         historyQuota: history ? history.historyQuota : 0
       };
     });
 
-    // useQuota=true: 占用指标学生，只看“已审批可用名额 > 0”
-    // useQuota=false: 不占指标学生，看历史分配链路（08/0854/085410 任一命中即可）
-    if (useQuota) {
-      teachersWithQuota = teachersWithQuota.filter((t) => Number(t.matchedQuota || 0) > 0);
-    } else {
-      teachersWithQuota = teachersWithQuota.filter((t) => {
-        const teacherId = String(t.Id || '').trim();
-        return historyTeacherIdSet.has(teacherId);
-      });
-    }
+    // 所有类型的学生必须可用的指标名额（matchedQuota）大于0才能选择该导师
+    teachersWithQuota = teachersWithQuota.filter((t) => Number(t.matchedQuota || 0) > 0);
 
     teachersWithQuota.sort((a, b) => {
       if (Number(b.matchedQuota || 0) !== Number(a.matchedQuota || 0)) {
