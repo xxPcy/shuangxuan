@@ -5,7 +5,7 @@
 <scroll-view scroll-y="true" class="announcement-container">
   <!-- 公告列表项 -->
   <view wx:for="{{announcements}}" wx:key="id" class="announcement-item" bindtap="viewAnnouncement" data-id="{{item.id}}">
-    <text class="announcement-title">{{item.content}}</text>
+    <text class="announcement-title">【{{item.category}}】{{item.content}}</text>
     <text class="announcement-date">{{item.date}}</text>
   </view>
 

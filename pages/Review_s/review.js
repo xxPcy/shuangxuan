@@ -259,14 +259,34 @@ Page({
         return;
       }
 
-      // **事务更新学生和导师信息**
-      const studentUpdate = db.collection('Stu').doc(selectedStudent.studentId).update({
+      // **严格并发检查：要求学生仍处于 pending，且申请项（selectedField/selectedTrack）未变化**
+      // 这样可以避免学生在老师确认前取消或修改申请，导致老师错误确认并扣减指标
+      const expectedField = latestStudent.selectedField || selectedStudent.selectedField || null;
+      const expectedTrack = latestStudent.selectedTrack || selectedStudent.selectedTrack || null;
+
+      const studentQuery = {
+        _id: selectedStudent.studentId,
+        status: 'pending'
+      };
+      if (expectedField) studentQuery.selectedField = expectedField;
+      if (expectedTrack) studentQuery.selectedTrack = expectedTrack;
+
+      const studentUpdateRes = await db.collection('Stu').where(studentQuery).update({
         data: {
           status: 'chosed',
           selected: Tec.name,
           selectedTecId: Tec.Id,
         },
       });
+
+      // 如果更新数为 0 表示并发/状态变更导致已被抢占或学生已取消申请
+      if (!studentUpdateRes.stats || studentUpdateRes.stats.updated === 0) {
+        wx.hideLoading();
+        this.setData({ acceptstate: false, showModal: false });
+        wx.showToast({ title: '已被前一台设备处理或学生已取消', icon: 'none', duration: 2500 });
+        this.loadPendingStudents(Tec_id); // 刷新
+        return;
+      }
 
       let teacherUpdate;
 
@@ -350,7 +370,7 @@ Page({
         return;
       }
   
-      await Promise.all([studentUpdate, teacherUpdate]);
+      await teacherUpdate; // 这里把原本的 Promise.all 换成只需等待导师信息更新（因之前已经await过了学生信息）
   
       // **检查招生名额**
         const teacherData = await db.collection('Teacher').doc(Tec_id).get();

@@ -197,9 +197,35 @@ Page({
     wx.showModal({
       title: '确认选择',
       content: `确定申请导师 ${teacher.name} 的 ${selectedName}（${selectedCode}）名额吗？`,
-      success: (res) => {
+      success: async (res) => {
         if (res.confirm) {
-          this.submitSelection(student, teacher, selectedCode, selectedName, selectedTrack);
+          wx.showLoading({ title: '安全校验中...', mask: true });
+          
+          try {
+            // 选导师前，先去数据库里查一下当前学生的最新状态
+            const stuRes = await db.collection('Stu').doc(student._id).get();
+            const currentStatus = stuRes.data.status;
+            
+            // 如果已经被标记为选择了相关的状态
+            if (currentStatus === 'pending' || currentStatus === 'chosed') {
+              wx.hideLoading();
+              wx.showToast({ title: '您已选择过导师，请勿重复操作', icon: 'none', duration: 2500 });
+              
+              // 强制刷新本地界面，收起禁用状态
+              this.setData({ status: currentStatus });
+              const buttons = this.data.quotaButtons.map((item) => ({ ...item, disabled: true, color: '#d3d3d3' }));
+              this.setData({ quotaButtons: buttons, groupedQuota: this.groupQuotaButtons(buttons) });
+              return;
+            }
+            
+            wx.hideLoading();
+            // 校验通过，走最后的提交流程
+            this.submitSelection(student, teacher, selectedCode, selectedName, selectedTrack);
+          } catch (err) {
+            wx.hideLoading();
+            console.error('状态校验失败', err);
+            wx.showToast({ title: '网络校验异常，请重试', icon: 'none' });
+          }
         }
       }
     });
@@ -221,16 +247,33 @@ Page({
   submitSelection(student, teacher, selectedCode, selectedName, selectedTrack) {
     const _ = db.command;
 
-    db.collection('Stu').doc(student._id).update({
+    wx.showLoading({ title: '提交中...', mask: true }); 
+
+    // 使用 where 增加并发原子锁：只能在状态允许的情况下更新
+    db.collection('Stu').where({
+      _id: student._id,
+      status: 'chosing' 
+    }).update({
       data: {
         preselection: [teacher.name, teacher._id],
         status: 'pending',
         selectedField: selectedCode,
         selectedTrack: selectedTrack
       }
-    }).then(() => {
-      wx.showToast({ title: '申请成功，等待导师审核', icon: 'success' });
+    }).then((res) => {
+      // res.stats.updated 值为 0，说明被另外一台设备或者并发网络请求抢占了
+      if (res.stats && res.stats.updated === 0) {
+        wx.hideLoading();
+        wx.showToast({ title: '您已提交过申请，不可重复选择', icon: 'none', duration: 2500 });
+        
+        // 强制刷新本地界面禁用状态
+        this.setData({ status: 'pending' });
+        const buttons = this.data.quotaButtons.map((item) => ({ ...item, disabled: true, color: '#d3d3d3' }));
+        this.setData({ quotaButtons: buttons, groupedQuota: this.groupQuotaButtons(buttons) });
+        return Promise.reject(new Error('CONCURRENCY_BLOCKED')); // 打断后续执行
+      }
 
+      // 如果当前设备抢到了锁，继续分配业务
       return db.collection('Teacher').doc(teacher._id).update({
         data: {
           prestudent: _.push({
@@ -246,7 +289,12 @@ Page({
           })
         }
       });
-    }).then(() => {
+    }).then((res) => {
+      if (!res) return; // 如果被拦截了直接返回
+
+      wx.hideLoading();
+      wx.showToast({ title: '申请成功，等待导师审核', icon: 'success' });
+      
       this.setData({ status: 'pending' });
       const buttons = this.data.quotaButtons.map((item) => ({
         ...item,
@@ -256,6 +304,10 @@ Page({
       const groupedQuota = this.groupQuotaButtons(buttons);
       this.setData({ quotaButtons: buttons, groupedQuota });
     }).catch((err) => {
+      if (err && err.message === 'CONCURRENCY_BLOCKED') {
+        return; // 静默处理被并发防重系统截断的异常
+      }
+      wx.hideLoading();
       console.error('提交选择失败', err);
       wx.showToast({ title: '提交失败，请重试', icon: 'none' });
     });

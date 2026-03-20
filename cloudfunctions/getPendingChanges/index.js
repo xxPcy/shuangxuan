@@ -8,6 +8,7 @@ exports.main = async (event, context) => {
     console.log(`获取待审批数据: teacherId = ${teacherId}`);
 
     const timeoutDuration = 48 * 60 * 60 * 1000; // 48小时超时
+    // const timeoutDuration =  60 * 1000; // 48小时超时
     const currentTimestamp = new Date().getTime();
 
     const teacherRes = await db.collection('Teacher').doc(teacherId).get();

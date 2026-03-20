@@ -59,7 +59,7 @@ viewAnnouncement(event) {
 
   if (announcement) {
     wx.showModal({
-      title: `公告详情`,
+      title: `【${announcement.category}】详情`,
       content: announcement.fullContent,
       showCancel: false, // 不显示取消按钮
     });

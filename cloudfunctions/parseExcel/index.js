@@ -210,7 +210,20 @@ exports.main = async (event, context) => {
       return raw;
     };
 
+    let lastTeacherId = '';
+    let lastTeacherName = '';
+    let lastLevel1Code = '';
+    let lastLevel1Name = '';
+    let lastLevel2Code = '';
+    let lastLevel2Name = '';
+
     sheets.forEach((sheet) => {
+      lastTeacherId = '';
+      lastTeacherName = '';
+      lastLevel1Code = '';
+      lastLevel1Name = '';
+      lastLevel2Code = '';
+      lastLevel2Name = '';
       const sheetName = String((sheet && sheet.name) || '').trim();
       const sheetTrack = normalizeTrack(sheetName.replace(/表$/, ''));
       const rows = (sheet && sheet.data) || [];
@@ -247,19 +260,20 @@ exports.main = async (event, context) => {
     };
     
     // 用于记录上一行的合并单元格信息
-    let lastTeacherId = '';
-    let lastTeacherName = '';
-    let lastLevel1Code = '';
-    let lastLevel1Name = '';
-    let lastLevel2Code = '';
-    let lastLevel2Name = '';
+    lastTeacherId = '';
+    lastTeacherName = '';
+    lastLevel1Code = '';
+    lastLevel1Name = '';
+    lastLevel2Code = '';
+    lastLevel2Name = '';
     
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
       const rowTrack = normalizeTrack(row[row.length - 1] || "");
       
-      // 跳过完全空的行
-      if (!row || row.length === 0 || row.every(cell => !cell)) {
+      // 跳过完全空的行（除去最后一个元素的 track，如果前面全空则跳过）
+      const cells = row.slice(0, -1);
+      if (!cells || cells.length === 0 || cells.every(cell => !cell || String(cell).trim() === '')) {
         continue;
       }
       

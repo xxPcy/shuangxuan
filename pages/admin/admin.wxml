@@ -5,7 +5,7 @@
   <textarea name="content" placeholder="请输入公告内容" value="{{announcementContent}}"></textarea>
   
   <!-- 公告类别选择 -->
-  <picker name="category" value="{{category}}" range="{{categories}}" bindchange="onCategoryChange">
+  <picker name="category" value="{{categoryIndex}}" range="{{categories}}" bindchange="onCategoryChange">
     <view class="picker">
       <text>类别选择：{{category}}</text>
     </view>
@@ -32,7 +32,7 @@
   <view class="modal-content">
     <form bindsubmit="saveAnnouncement">
       <textarea name="content" placeholder="修改公告内容" value="{{currentAnnouncement.fullContent}}"></textarea>
-      <picker name="category" value="{{currentAnnouncement.category}}" range="{{categories}}" bindchange="onEditCategoryChange">
+      <picker name="category" value="{{currentAnnouncement.categoryIndex}}" range="{{categories}}" bindchange="onEditCategoryChange">
         <view class="picker">
           <text>{{currentAnnouncement.category}}</text>
         </view>
@@ -275,18 +275,21 @@
 
   <!-- 上传和导出功能 -->
   <view class="button-group">
+    <button bind:tap="logic">导入逻辑表</button>
     <button bindtap="chooseStudentExcel">创建学生</button>
   <button bindtap="chooseTeacherExcel">创建导师</button>
+  <button bindtap="outPutexample">导出《新增指标》模板</button>
   <button bindtap="chooseTeacherzhaoshengExcel">新增指标</button>
   
   <button bindtap="exportExcel">导出双选名单（学生）</button>
   <button bindtap="exportTeacherQuota">导出双选结果（导师）</button>
-  <button bindtap="clearSystem">清空系统</button>
-  <!-- <button bind:tap="detailmention">查看导师信息</button> -->
-  <button bind:tap="logic">导入逻辑表</button>
-  <button bindtap="showPopup">查看退回记录</button>
-  <button bindtap="outPutexample">导出《新增指标》模板</button>
   <button bindtap="showAdminPasswordPopup">修改登录密码</button>
+
+  <!-- <button bind:tap="detailmention">查看导师信息</button> -->
+
+  <button bindtap="showPopup">查看退回记录</button>
+  <button bindtap="clearSystem">清空系统</button>
+
     <!-- 弹窗 -->
   <view class="popup" wx:if="{{showPopupFlag}}">
     <view class="popup-content">
