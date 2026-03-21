@@ -371,42 +371,47 @@ Page({
       }
   
       await teacherUpdate; // 这里把原本的 Promise.all 换成只需等待导师信息更新（因之前已经await过了学生信息）
-  
-      // **检查招生名额**
-        const teacherData = await db.collection('Teacher').doc(Tec_id).get();
-        let quotaExhausted = false;
-        if (Array.isArray(teacherData.data.quota_settings) && level3Code) {
-          const matchedCandidates = teacherData.data.quota_settings
-          .filter((item) =>
-            ['level1', 'level2', 'level3'].includes(item.type) &&
-            String(level3Code).startsWith(String(item.code || '')) &&
-            this.normalizeTrackValue(item.track) === studentTrack
-          );
 
-        quotaExhausted = matchedCandidates.length > 0 && matchedCandidates.every((item) =>
-          Number(item.max_quota || 0) - Number(item.used_quota || 0) <= 0
-        );
-      }
+      // **从每个剩余学生的角度：自下而上检查是否还有名额**
+      const teacherData = await db.collection('Teacher').doc(Tec_id).get();
+      const currentQuotas = teacherData.data.quota_settings || [];
 
-      if (quotaExhausted) {
-        const studentsToReturn = this.data.prestudent
-          .filter((s) => s.specialized === item.specialized && s.studentId !== item.studentId)
-          .map((s) => s.studentId);
-  
-        if (studentsToReturn.length > 0) {
-          await wx.cloud.callFunction({
-            name: 'SelectUpdate',
-            data: {
-              tecId: Tec_id,
-              tecName: Tec.name,
-              studentIds: studentsToReturn,
-              reason: '由于导师名额已满，被自动退回。',
-              timestamp: new Date().getTime(),
-            },
+      // 寻找仍然有可能被录取的学生（即他们还能匹配到有空余名额的池子）
+      const studentsToReturn = this.data.prestudent
+        .filter((s) => {
+          if (s.studentId === item.studentId) return false; // 排除刚刚录取的这名学生自身
+
+          const sTrack = this.normalizeTrackValue(s.track);
+          const sCode = String(s.level3_code || s.specialized);
+
+          // 核心思路：从学生自己的底层代码向上看，还有没有能装得下他的"池子"
+          const hasAvailableQuota = currentQuotas.some((q) => {
+            const isMatch = ['level1', 'level2', 'level3'].includes(q.type) &&
+                            sCode.startsWith(String(q.code || '')) &&
+                            this.normalizeTrackValue(q.track) === sTrack;
+            
+            const hasSpace = (Number(q.max_quota || 0) - Number(q.used_quota || 0)) > 0;
+            return isMatch && hasSpace;
           });
-        }
+
+          // 如果该学生往上看，所有的匹配池（不管是 0855 还是 08）都没名额了，那就必须退回（也就是 !hasAvailableQuota 为 true）
+          return !hasAvailableQuota;
+        })
+        .map((s) => s.studentId);
+
+      if (studentsToReturn.length > 0) {
+        await wx.cloud.callFunction({
+          name: 'SelectUpdate',
+          data: {
+            tecId: Tec_id,
+            tecName: Tec.name,
+            studentIds: studentsToReturn,
+            reason: '由于导师名额已满，已被自动退回。',
+            timestamp: new Date().getTime(),
+          },
+        });
       }
-  
+
       wx.hideLoading();
       wx.showToast({
         title: '操作成功',
