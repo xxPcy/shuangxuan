@@ -638,48 +638,69 @@ searchTeacher() {
         const teacher = res.data[0];
         
         // 从 quota_settings 中获取所有专业，显示：已确认未使用 + 待审批
-        let availableQuotas = [];
-        if (teacher.quota_settings && Array.isArray(teacher.quota_settings)) {
-          availableQuotas = teacher.quota_settings
-            .filter(item => ['level1', 'level2', 'level3'].includes(item.type))
-            .map(item => {
-              const maxQuota = Number(item.max_quota || 0);
-              const usedQuota = Number(item.used_quota || 0);
-              const pendingQuota = Number(item.pending_quota || 0);
-              const confirmedRemaining = Math.max(maxQuota - usedQuota, 0);
-              const track = this.normalizeTrackValue(item.track);
-              return {
-                code: item.code,
-                name: item.name,
-                type: item.type,
-                track,
-                trackText: this.getTrackText(track),
-                uiKey: `${String(item.code || '').trim()}__${track}`,
-                confirmed_remaining: confirmedRemaining,
-                pending_quota: pendingQuota,
-                total_available: confirmedRemaining + pendingQuota,
-              };
-            });
-          
-          // 按专业代码排序：先按代码长度（一级2位、二级4位、三级6位），再按代码字母顺序
-          availableQuotas.sort((a, b) => {
-            // 先按代码长度排序（短的在前，即一级->二级->三级）
-            const aCode = String(a.code || '');
-            const bCode = String(b.code || '');
-            if (aCode.length !== bCode.length) {
-              return aCode.length - bCode.length;
-            }
-            // 同级别按代码字母顺序排序
-            const codeCmp = aCode.localeCompare(bCode);
-            if (codeCmp !== 0) return codeCmp;
-            return this.getTrackOrder(a.track) - this.getTrackOrder(b.track);
-          });
-        }
+          let availableQuotas = [];
+          let teacherTracksSet = new Set();
+          let availableQuotaGroups = [];
 
-        const availableQuotaGroups = this.groupQuotasByTrack(availableQuotas);
-        const activeAvailableTrack = availableQuotaGroups[0] ? availableQuotaGroups[0].track : '全日制';
-        
-        this.setData({
+          if (teacher.quota_settings && Array.isArray(teacher.quota_settings)) {
+            let rawAvailableQuotas = teacher.quota_settings
+              .filter(item => ['level1', 'level2', 'level3'].includes(item.type))
+              .map(item => {
+                const maxQuota = Number(item.max_quota || 0);
+                const usedQuota = Number(item.used_quota || 0);
+                const pendingQuota = Number(item.pending_quota || 0);
+                const confirmedRemaining = Math.max(maxQuota - usedQuota, 0);
+                const track = this.normalizeTrackValue(item.track);
+                
+                teacherTracksSet.add(track);
+
+                return {
+                  code: item.code,
+                  name: item.name,
+                  type: item.type,
+                  track,
+                  trackText: this.getTrackText(track),
+                  uiKey: `${String(item.code || '').trim()}__${track}`,
+                  confirmed_remaining: confirmedRemaining,
+                  pending_quota: pendingQuota,
+                  total_available: confirmedRemaining + pendingQuota,
+                  maxQuota: maxQuota,
+                  usedQuota: usedQuota
+                };
+              });
+
+            availableQuotas = rawAvailableQuotas.filter(item => item.maxQuota > 0 || item.usedQuota > 0 || item.confirmed_remaining > 0 || item.pending_quota > 0);
+
+            availableQuotas.sort((a, b) => {
+              const aCode = String(a.code || '');
+              const bCode = String(b.code || '');
+              if (aCode.length !== bCode.length) {
+                return aCode.length - bCode.length;
+              }
+              const codeCmp = aCode.localeCompare(bCode);
+              if (codeCmp !== 0) return codeCmp;
+              return this.getTrackOrder(a.track) - this.getTrackOrder(b.track);
+            });
+
+            const groups = new Map();
+            const teacherTracksArray = Array.from(teacherTracksSet);
+            teacherTracksArray.forEach((track) => {
+              groups.set(track, { track, list: [] });
+            });
+
+            (availableQuotas || []).forEach((item) => {
+              const track = this.normalizeTrackValue(item.track);
+              if (!groups.has(track)) groups.set(track, { track, list: [] });
+              groups.get(track).list.push(item);
+            });
+
+            availableQuotaGroups = Array.from(groups.values())
+              .sort((a, b) => this.getTrackOrder(a.track) - this.getTrackOrder(b.track));
+          } else {
+             availableQuotaGroups = this.groupQuotasByTrack(availableQuotas);
+          }
+
+          const activeAvailableTrack = availableQuotaGroups[0] ? availableQuotaGroups[0].track : '全日制';        this.setData({
           searchedTeacher: teacher,
           availableQuotas: availableQuotas,  // 排序后的专业列表
           availableQuotaGroups,

@@ -43,9 +43,10 @@
       </view>
     </block>
   </view>
-  <block wx:for="{{quotaTrackSections}}" wx:key="track">
-    <view class="track-section" wx:if="{{activeQuotaTrack === item.track}}">
-      <block wx:for="{{item.items}}" wx:key="uiKey">
+    <block wx:for="{{quotaTrackSections}}" wx:key="track">
+      <view class="track-section" wx:if="{{activeQuotaTrack === item.track}}">
+        <view wx:if="{{item.items.length === 0}}" style="text-align: center; color: #999; padding: 20rpx 0; font-size: 28rpx;">暂无相应的指标额度</view>
+        <block wx:for="{{item.items}}" wx:key="uiKey">
         <view class="quota-item">
           <text>[{{item.level}}] {{item.key}} {{item.label}}:</text>
           <view>
