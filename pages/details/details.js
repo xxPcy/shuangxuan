@@ -65,6 +65,16 @@ Page({
     return raw;
   },
 
+  getTrackText(track) {
+    return this.normalizeTrackValue(track);
+  },
+
+  getTrackOrder(track) {
+    const t = this.normalizeTrackValue(track);
+    const order = { '全日制': 1, '联培': 2, '非全日制': 3, '士兵': 4 };
+    return order[t] || 99;
+  },
+
   getAllowedTracksByStudentTrack(track) {
     const t = this.normalizeTrackValue(track);
     if (t === '非全日制') return ['非全日制'];
@@ -90,11 +100,16 @@ Page({
       level3Map.set(key, {
         code,
         track,
-        name: track === 'joint' ? `${name}(联培)` : (track === 'parttime' ? `${name}(非全)` : name)
+        baseName: name,
+        displayName: `${name}（${this.getTrackText(track)}）`
       });
     });
 
-    const list = Array.from(level3Map.values()).sort((a, b) => `${a.code}_${a.track}`.localeCompare(`${b.code}_${b.track}`));
+    const list = Array.from(level3Map.values()).sort((a, b) => {
+      const codeCmp = String(a.code || '').localeCompare(String(b.code || ''));
+      if (codeCmp !== 0) return codeCmp;
+      return this.getTrackOrder(a.track) - this.getTrackOrder(b.track);
+    });
 
     return list.map((item) => {
       const matchedEntries = quotaSettings.filter((quota) => {
@@ -119,7 +134,8 @@ Page({
         key: `${item.code}__${item.track}`,
         code: item.code,
         track: item.track,
-        name: item.name,
+        name: item.displayName,
+        baseName: item.baseName,
         approvedRemaining,
         isOwnMajor,
         disabled: !canSelect,

@@ -1,272 +1,159 @@
-
-
-
-
-
-// const cloud = require('wx-server-sdk');
-// const xlsx = require('node-xlsx');
-
-// cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
-
-// const quotaCategories = [
-//   { label: '电子信息（专硕）', key: 'dzxxzs', usedKey: 'used_dzxxzs' },
-//   { label: '控制科学与工程（学硕）', key: 'kongzhiX', usedKey: 'used_kongzhiX' },
-//   { label: '电气工程（专硕）', key: 'dqgczs', usedKey: 'used_dqgczs' },
-//   { label: '电气工程（学硕）', key: 'dqgcxs', usedKey: 'used_dqgcxs' },
-//   { label: '电子信息（联培）', key: 'dzxxlp', usedKey: 'used_dzxxlp' },
-//   { label: '电气工程（联培）', key: 'dqgclp', usedKey: 'used_dqgclp' },
-//   { label: '电气工程（非全）', key: 'dqgcpartTime', usedKey: 'used_dqgcpartTime' },
-//   { label: '电气工程（士兵）', key: 'dqgcsoldier', usedKey: 'used_dqgcsoldier' },
-//   { label: '电子信息（非全）', key: 'dzxxpartTime', usedKey: 'used_dzxxpartTime' },
-//   { label: '电子信息（士兵）', key: 'dzxxsoldier', usedKey: 'used_dzxxsoldier' }
-// ];
-
-// exports.main = async (event, context) => {
-//   try {
-//     const db = cloud.database();
-
-//     // 获取所有导师数据
-//     const teachersRes = await db.collection('Teacher').get();
-//     const teachers = teachersRes.data;
-
-//     // 构建 Excel 数据
-//     const data = [[
-//       '导师姓名', '导师ID', '专业类别', '总名额', '已招生人数', '剩余名额', '已招学生姓名'
-//     ]];
-
-//     // 用于记录合并单元格的范围
-//     const merges = [];
-
-//     // 遍历每个导师
-//     teachers.forEach((teacher, teacherIndex) => {
-//       const teacherName = teacher.name;
-//       const teacherId = teacher.Id;
-//       const startRow = data.length; // 记录当前导师数据起始行
-
-//       // 遍历所有专业类别
-//       quotaCategories.forEach(category => {
-//         const totalQuota = teacher[category.key] || 0;
-//         const usedQuota = teacher[category.usedKey] || 0; // 直接读取 used_xxx 字段
-//         const remaining = Math.max(totalQuota - usedQuota, 0);
-
-//         // 获取该专业已招学生姓名（假设 students 字段包含学生列表）
-//         const students = (teacher.students || [])
-//           .filter(s => s.categoryKey === category.key)
-//           .map(s => s.name || '未知姓名')
-//           .join(', ') || '无';
-
-//         data.push([
-//           teacherName,
-//           teacherId,
-//           category.label,
-//           totalQuota,
-//           usedQuota, // 使用 used_xxx 字段值
-//           remaining,
-//           students
-//         ]);
-//       });
-
-//       // 记录合并范围（合并导师姓名和ID）
-//       const endRow = data.length - 1;
-//       if (endRow > startRow) {
-//         merges.push(
-//           { s: { r: startRow, c: 0 }, e: { r: endRow, c: 0 } }, // 合并姓名列
-//           { s: { r: startRow, c: 1 }, e: { r: endRow, c: 1 } }  // 合并ID列
-//         );
-//       }
-//     });
-
-//     // 检查数据有效性
-//     if (data.length <= 1) throw new Error('无有效数据可导出');
-
-//     // 生成 Excel 文件（添加 merges 配置）
-//     const buffer = xlsx.build([{
-//       name: '导师招生详情',
-//       data: data,
-//       options: { '!merges': merges } // 关键：设置合并单元格范围
-//     }]);
-
-//     // 上传云存储
-//     const uploadRes = await cloud.uploadFile({
-//       cloudPath: `enrollment_stats/teacher_quota_${Date.now()}.xlsx`,
-//       fileContent: buffer
-//     });
-
-//     return { fileID: uploadRes.fileID };
-
-//   } catch (err) {
-//     console.error('导出失败:', err);
-//     return { error: err.message };
-//   }
-// };
-
-// const cloud = require('wx-server-sdk');
-// const xlsx = require('node-xlsx');
-
-// cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
-
-// const quotaCategories = [
-//   { label: '电子信息（专硕）', key: 'dzxxzs', usedKey: 'used_dzxxzs' },
-//   { label: '控制科学与工程（学硕）', key: 'kongzhiX', usedKey: 'used_kongzhiX' },
-//   { label: '电气工程（专硕）', key: 'dqgczs', usedKey: 'used_dqgczs' },
-//   { label: '电气工程（学硕）', key: 'dqgcxs', usedKey: 'used_dqgcxs' },
-//   { label: '电子信息（联培）', key: 'dzxxlp', usedKey: 'used_dzxxlp' },
-//   { label: '电气工程（联培）', key: 'dqgclp', usedKey: 'used_dqgclp' },
-//   { label: '电气工程（非全）', key: 'dqgcpartTime', usedKey: 'used_dqgcpartTime' },
-//   { label: '电气工程（士兵）', key: 'dqgcsoldier', usedKey: 'used_dqgcsoldier' },
-//   { label: '电子信息（非全）', key: 'dzxxpartTime', usedKey: 'used_dzxxpartTime' },
-//   { label: '电子信息（士兵）', key: 'dzxxsoldier', usedKey: 'used_dzxxsoldier' }
-// ];
-
-// exports.main = async (event, context) => {
-//   try {
-//     const db = cloud.database();
-//     const teachersRes = await db.collection('Teacher').get();
-//     const teachers = teachersRes.data;
-
-//     const data = [[
-//       '导师姓名', '导师ID', '专业类别', '总名额', '已招生人数', '剩余名额', '已招学生姓名'
-//     ]];
-//     const merges = [];
-
-//     teachers.forEach((teacher, teacherIndex) => {
-//       const teacherName = teacher.name;
-//       const teacherId = teacher.Id;
-//       const startRow = data.length;
-
-//       quotaCategories.forEach(category => {
-//         const totalQuota = teacher[category.key] || 0;
-//         const usedQuota = teacher[category.usedKey] || 0;
-//         const remaining = Math.max(totalQuota - usedQuota, 0);
-
-//         // 关键修改：使用 student 字段（单数）
-//         const students = (teacher.students || []) // 注意这里是 student（单数）！
-//           .filter(s => s.specialized === category.key) // 按专业筛选
-//           .map(s => s.studentName || '未知学生') // 提取姓名字段
-//           .join(', ') || '无'; // 处理空值
-
-//         data.push([
-//           teacherName,
-//           teacherId,
-//           category.label,
-//           totalQuota,
-//           usedQuota,
-//           remaining,
-//           students // 显示实际学生姓名
-//         ]);
-//       });
-
-//       // 合并单元格逻辑
-//       const endRow = data.length - 1;
-//       if (endRow > startRow) {
-//         merges.push(
-//           { s: { r: startRow, c: 0 }, e: { r: endRow, c: 0 } }, // 合并姓名列
-//           { s: { r: startRow, c: 1 }, e: { r: endRow, c: 1 } }  // 合并ID列
-//         );
-//       }
-//     });
-
-//     if (data.length <= 1) throw new Error('无有效数据可导出');
-
-//     // 生成 Excel 文件（包含合并配置）
-//     const buffer = xlsx.build([{
-//       name: '导师招生详情',
-//       data: data,
-//       options: { '!merges': merges }
-//     }]);
-
-//     // 上传云存储
-//     const uploadRes = await cloud.uploadFile({
-//       cloudPath: `enrollment_stats/teacher_quota_${Date.now()}.xlsx`,
-//       fileContent: buffer
-//     });
-
-//     return { fileID: uploadRes.fileID };
-
-//   } catch (err) {
-//     console.error('导出失败:', err);
-//     return { error: err.message };
-//   }
-// };
-
-
-
-// 云函数入口文件，导出双选招生表
+// 云函数入口文件，导出双选结果（导师维度，按 Logic 的 level3+track 动态生成专业列）
 const cloud = require('wx-server-sdk');
 const xlsx = require('node-xlsx');
 
 cloud.init({ env: 'cloud1-2gn42bha8f90b918' });
 
-const quotaCategories = [
-  { label: '电子信息专硕', key: 'dzxxzs', usedKey: 'used_dzxxzs' },
-  { label: '控制科学与工程', key: 'kongzhiX', usedKey: 'used_kongzhiX' },
-  { label: '电气工程专硕', key: 'dqgczs', usedKey: 'used_dqgczs' },
-  { label: '电气工程学硕', key: 'dqgcxs', usedKey: 'used_dqgcxs' },
-  { label: '电子信息联培', key: 'dzxxlp', usedKey: 'used_dzxxlp' },
-  { label: '电气工程联培', key: 'dqgclp', usedKey: 'used_dqgclp' },
-  { label: '电气工程非全', key: 'dqgcpartTime', usedKey: 'used_dqgcpartTime' },
-  { label: '电气工程士兵', key: 'dqgcsoldier', usedKey: 'used_dqgcsoldier' },
-  { label: '电子信息非全', key: 'dzxxpartTime', usedKey: 'used_dzxxpartTime' },
-  { label: '电子信息士兵', key: 'dzxxsoldier', usedKey: 'used_dzxxsoldier' }
-];
+const normalizeTrackValue = (value) => {
+  const raw = String(value || '').trim();
+  const lower = raw.toLowerCase();
+  if (!raw) return '全日制';
+  if (['regular', '普通', '全日制'].includes(lower) || raw === '普通' || raw === '全日制') return '全日制';
+  if (['joint', '联培'].includes(lower) || raw === '联培') return '联培';
+  if (['parttime', '非全', '非全日制'].includes(lower) || raw === '非全' || raw === '非全日制') return '非全日制';
+  if (['soldier', '士兵'].includes(lower) || raw === '士兵') return '士兵';
+  return raw;
+};
 
-exports.main = async (event, context) => {
+const getTrackOrder = (track) => {
+  const t = normalizeTrackValue(track);
+  const order = { '全日制': 1, '联培': 2, '非全日制': 3, '士兵': 4 };
+  return order[t] || 99;
+};
+
+const getAllRows = async (collection) => {
+  const rows = [];
+  const pageSize = 100;
+  let skip = 0;
+  while (true) {
+    const res = await collection.skip(skip).limit(pageSize).get();
+    const chunk = (res && res.data) || [];
+    rows.push(...chunk);
+    if (chunk.length < pageSize) break;
+    skip += pageSize;
+  }
+  return rows;
+};
+
+const buildCategoryListFromLogic = (logicRows = []) => {
+  const map = new Map();
+
+  (logicRows || []).forEach((row) => {
+    const code = String(row.level3_code || '').trim();
+    const name = String(row.level3_name || '').trim();
+    const track = normalizeTrackValue(row.track || '全日制');
+    if (!code || !name) return;
+    const key = `${code}__${track}`;
+    if (map.has(key)) return;
+    map.set(key, {
+      key,
+      code,
+      track,
+      name,
+      label: `${name}（${track}）`
+    });
+  });
+
+  return Array.from(map.values()).sort((a, b) => {
+    const codeCmp = String(a.code || '').localeCompare(String(b.code || ''));
+    if (codeCmp !== 0) return codeCmp;
+    return getTrackOrder(a.track) - getTrackOrder(b.track);
+  });
+};
+
+const buildTeacherQuotaMap = (teacher = {}) => {
+  const quotaMap = new Map();
+  const settings = Array.isArray(teacher.quota_settings) ? teacher.quota_settings : [];
+
+  settings
+    .filter((item) => String(item.type || '') === 'level3')
+    .forEach((item) => {
+      const code = String(item.code || '').trim();
+      const track = normalizeTrackValue(item.track || '全日制');
+      if (!code) return;
+      quotaMap.set(`${code}__${track}`, {
+        max_quota: Number(item.max_quota || 0),
+        used_quota: Number(item.used_quota || 0)
+      });
+    });
+
+  return quotaMap;
+};
+
+const buildTeacherStudentMap = (teacher = {}) => {
+  const studentMap = new Map();
+  const students = Array.isArray(teacher.student) ? teacher.student : [];
+
+  students.forEach((s) => {
+    const code = String(s.categoryKey || '').trim();
+    const track = normalizeTrackValue(s.track || '全日制');
+    if (!code) return;
+    const key = `${code}__${track}`;
+    if (!studentMap.has(key)) studentMap.set(key, []);
+    studentMap.get(key).push(s.studentName || s.name || '未知学生');
+  });
+
+  return studentMap;
+};
+
+exports.main = async () => {
   try {
     const db = cloud.database();
-    const teachersCollection = db.collection('Teacher');
 
-    // 分页查询获取所有老师数据
-    let teachers = [];
-    let skip = 0;
-    const limit = 100; // 每次最多查询 100 条记录
-    let res;
-    do {
-      res = await teachersCollection.skip(skip).limit(limit).get();
-      teachers = teachers.concat(res.data);
-      skip += limit;
-    } while (res.data.length === limit);
+    const [teachers, logicRows] = await Promise.all([
+      getAllRows(db.collection('Teacher')),
+      getAllRows(db.collection('Logic'))
+    ]);
 
-    // 初始化 Excel 表头
+    const categories = buildCategoryListFromLogic(logicRows);
+    if (categories.length === 0) {
+      throw new Error('Logic 表无有效 level3 专业数据，无法导出');
+    }
+
     const data = [[
-      '导师姓名', '导师ID', '专业类别', '总名额', '已招生人数', '剩余名额', '已招学生姓名'
+      '导师姓名',
+      '导师ID',
+      '专业类别',
+      '专业代码',
+      '类型',
+      '总名额',
+      '已招生人数',
+      '剩余名额',
+      '已招学生姓名'
     ]];
     const merges = [];
 
-    // 遍历每位导师，生成对应的专业数据行
     teachers.forEach((teacher) => {
-      const teacherName = teacher.name;
-      const teacherId = teacher.Id;
+      const teacherName = teacher.name || '';
+      const teacherId = teacher.Id || '';
       const startRow = data.length;
 
-      quotaCategories.forEach(category => {
-       // const totalQuota = teacher[category.key] || 0;
-        //const usedQuota = teacher[category.usedKey] || 0;
-        //const remaining = Math.max(totalQuota - usedQuota, 0);
+      const quotaMap = buildTeacherQuotaMap(teacher);
+      const studentMap = buildTeacherStudentMap(teacher);
 
-        const usedQuota = teacher[category.usedKey] || 0; // 已使用名额
-        const remaining = teacher[category.key] || 0; // 剩余名额
-        const totalQuota = usedQuota + remaining; // 动态计算总名额
+      categories.forEach((category) => {
+        const key = category.key;
+        const quota = quotaMap.get(key) || { max_quota: 0, used_quota: 0 };
 
-        const students = (teacher.student || [])
-          .filter(s => {
-            // 使用 .trim() 和 .toLowerCase() 确保匹配不受大小写和空格影响
-            return s.categoryKey.trim().toLowerCase() === category.key.trim().toLowerCase();
-          })
-          .map(s => s.studentName || '未知学生')
-          .join(', ') || '无';
+        const studentNames = studentMap.get(key) || [];
+        const usedByStudentList = studentNames.length;
+        const usedQuota = Math.max(Number(quota.used_quota || 0), usedByStudentList);
+        const totalQuota = Number(quota.max_quota || 0);
+        const remaining = Math.max(totalQuota - usedQuota, 0);
 
         data.push([
           teacherName,
           teacherId,
           category.label,
+          category.code,
+          category.track,
           totalQuota,
           usedQuota,
           remaining,
-          students
+          studentNames.join('，') || '无'
         ]);
       });
 
-      // 对同一导师的多条数据进行合并（导师姓名和导师ID列）
       const endRow = data.length - 1;
       if (endRow > startRow) {
         merges.push(
@@ -276,24 +163,22 @@ exports.main = async (event, context) => {
       }
     });
 
-    if (data.length <= 1) throw new Error('无有效数据可导出');
+    const buffer = xlsx.build([
+      {
+        name: '导师双选结果',
+        data,
+        options: { '!merges': merges }
+      }
+    ]);
 
-    // 生成 Excel 文件
-    const buffer = xlsx.build([{
-      name: '导师招生详情',
-      data: data,
-      options: { '!merges': merges }
-    }]);
-
-    // 上传生成的 Excel 文件到云存储
     const uploadRes = await cloud.uploadFile({
-      cloudPath: `enrollment_stats/teacher_quota_${Date.now()}.xlsx`,
+      cloudPath: `enrollment_stats/teacher_selection_${Date.now()}.xlsx`,
       fileContent: buffer
     });
 
-    return { fileID: uploadRes.fileID };
+    return { success: true, fileID: uploadRes.fileID };
   } catch (err) {
     console.error('导出失败:', err);
-    return { error: err.message };
+    return { success: false, error: err.message || '导出失败' };
   }
 };

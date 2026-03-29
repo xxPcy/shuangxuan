@@ -190,9 +190,21 @@
         <button class="close-btn" bindtap="closeTeachermention">×</button>
     </view>
         <text>招生名额:</text>          
-          <block wx:for="{{availableQuotas}}" wx:key="code">
-          <view class="quota-row">
-          <text>{{item.name}}（{{item.code}}）：{{item.total_available}}（含{{item.pending_quota}}个待审批）</text>
+        <view class="track-tabs" wx:if="{{availableQuotaGroups.length > 0}}">
+          <block wx:for="{{availableQuotaGroups}}" wx:key="track">
+            <view class="track-tab {{activeAvailableTrack === item.track ? 'active' : ''}}" data-track="{{item.track}}" bindtap="toggleAvailableTrack">
+              {{item.track}}
+            </view>
+          </block>
+        </view>
+
+          <block wx:for="{{availableQuotaGroups}}" wx:key="track">
+          <view wx:if="{{activeAvailableTrack === item.track}}">
+            <block wx:for="{{item.list}}" wx:key="uiKey">
+              <view class="quota-row">
+                <text>{{item.name}}（{{item.code}}，{{item.trackText}}）：{{item.total_available}}（含{{item.pending_quota}}个待审批）</text>
+              </view>
+            </block>
           </view>
         </block>
         <view wx:if="{{availableQuotas.length === 0}}" style="color: #999; padding: 10rpx 0;">
@@ -226,18 +238,29 @@
    <view class="popup-content">
     <text>编辑导师 {{selectedTeacher.name}} 招生名额</text>
     <button class="close-btn" bindtap="closeTeachermodify">×</button>
+    <view class="track-tabs" wx:if="{{editableQuotaGroups.length > 0}}">
+      <block wx:for="{{editableQuotaGroups}}" wx:key="track">
+        <view class="track-tab {{activeEditableTrack === item.track ? 'active' : ''}}" data-track="{{item.track}}" bindtap="toggleEditableTrack">
+          {{item.track}}
+        </view>
+      </block>
+    </view>
     <scroll-view scroll-y="true" >
-    <view wx:for="{{editableQuotas}}" wx:key="uiKey">
+    <view wx:for="{{editableQuotaGroups}}" wx:key="track">
+      <view wx:if="{{activeEditableTrack === item.track}}">
+        <view wx:for="{{item.list}}" wx:key="uiKey">
 
-      <view class="quota-row">
-        <text>{{item.name}}（{{item.code}}，{{item.trackText}}）</text>
-        <text>未确认: {{item.pending_quota}} | 已确认未使用: {{item.confirmed_remaining}} | 已使用: {{item.used_quota}} | 可新增(被退回): {{item.rejected_quota}}</text>
-        <text wx:if="{{item.pendingChange > 0}}">已新增: +{{item.pendingChange}}</text>
-        <text wx:if="{{item.subtractFromPending > 0 || item.subtractFromConfirmed > 0}}">已减少: {{item.subtractFromPending > 0 ? '未确认-' + item.subtractFromPending : ''}}{{item.subtractFromPending > 0 && item.subtractFromConfirmed > 0 ? ', ' : ''}}{{item.subtractFromConfirmed > 0 ? '已确认未使用-' + item.subtractFromConfirmed : ''}}</text>
-        <button data-key="{{item.uiKey}}" data-action="add" bindtap="modifyQuota" class="add">加一</button>
-        <button data-key="{{item.uiKey}}" data-action="subtract" bindtap="modifyQuota" class="reduce">减一</button>
+          <view class="quota-row">
+            <text>{{item.name}}（{{item.code}}，{{item.trackText}}）</text>
+            <text>未确认: {{item.pending_quota}} | 已确认未使用: {{item.confirmed_remaining}} | 已使用: {{item.used_quota}} | 可新增(被退回): {{item.rejected_quota}}</text>
+            <text wx:if="{{item.pendingChange > 0}}">已新增: +{{item.pendingChange}}</text>
+            <text wx:if="{{item.subtractFromPending > 0 || item.subtractFromConfirmed > 0}}">已减少: {{item.subtractFromPending > 0 ? '未确认-' + item.subtractFromPending : ''}}{{item.subtractFromPending > 0 && item.subtractFromConfirmed > 0 ? ', ' : ''}}{{item.subtractFromConfirmed > 0 ? '已确认未使用-' + item.subtractFromConfirmed : ''}}</text>
+            <button data-key="{{item.uiKey}}" data-action="add" bindtap="modifyQuota" class="add">加一</button>
+            <button data-key="{{item.uiKey}}" data-action="subtract" bindtap="modifyQuota" class="reduce">减一</button>
+          </view>
+
+        </view>
       </view>
-
     </view>
         <button bindtap="saveTeacherChanges" class="save" disabled="{{acceptstate}}">保存</button>
         <!-- 加一个弹窗（信息提示名额变化） and 还需要加一个状态判断-->
