@@ -45,6 +45,7 @@
       style="background-color: {{item.color}};"
       data-code="{{item.code}}"
       data-name="{{item.name}}"
+      data-base-name="{{item.baseName}}"
       data-track="{{item.track}}"
       data-disabled="{{item.disabled}}"
       bindtap="selectTeacherByCategory"
