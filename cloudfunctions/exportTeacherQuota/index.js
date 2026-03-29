@@ -80,9 +80,8 @@ const buildTeacherQuotaMap = (teacher = {}) => {
   return quotaMap;
 };
 
-const buildTeacherStudentMap = (teacher = {}, categories = []) => {
+const buildTeacherStudentMap = (students = [], categories = []) => {
   const studentMap = new Map();
-  const students = Array.isArray(teacher.student) ? teacher.student : [];
   const categoryByCode = new Map();
   const categoryByName = new Map();
 
@@ -122,7 +121,7 @@ const buildTeacherStudentMap = (teacher = {}, categories = []) => {
     return raw ? normalizeTrackValue(raw) : '';
   };
 
-  students.forEach((s) => {
+  (Array.isArray(students) ? students : []).forEach((s) => {
     const code = resolveStudentCode(s);
     const track = resolveStudentTrack(s);
     if (!code) return;
@@ -151,9 +150,10 @@ exports.main = async () => {
   try {
     const db = cloud.database();
 
-    const [teachers, logicRows] = await Promise.all([
+    const [teachers, logicRows, stuRows] = await Promise.all([
       getAllRows(db.collection('Teacher')),
-      getAllRows(db.collection('Logic'))
+      getAllRows(db.collection('Logic')),
+      getAllRows(db.collection('Stu'))
     ]);
 
     const categories = buildCategoryListFromLogic(logicRows);
@@ -180,7 +180,29 @@ exports.main = async () => {
       const startRow = data.length;
 
       const quotaMap = buildTeacherQuotaMap(teacher);
-      const studentMap = buildTeacherStudentMap(teacher, categories);
+      const teacherStudentList = Array.isArray(teacher.student) ? [...teacher.student] : [];
+      const matchedStuRows = (Array.isArray(stuRows) ? stuRows : []).filter((stu) => {
+        const selectedTecId = String(stu.selectedTecId || '').trim();
+        const selectedName = String(stu.selected || '').trim();
+        if (!selectedTecId && !selectedName) return false;
+        return selectedTecId === String(teacherId).trim() || selectedName === String(teacherName).trim();
+      });
+
+      const mergedStudents = [];
+      const seen = new Set();
+      [...teacherStudentList, ...matchedStuRows].forEach((s) => {
+        const key = [
+          String(s.studentId || '').trim(),
+          String(s._id || '').trim(),
+          String(s.Id || '').trim(),
+          String(s.name || s.studentName || '').trim()
+        ].find(Boolean);
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        mergedStudents.push(s);
+      });
+
+      const studentMap = buildTeacherStudentMap(mergedStudents, categories);
 
       categories.forEach((category) => {
         const key = category.key;
