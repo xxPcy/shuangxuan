@@ -271,16 +271,18 @@ viewAnnouncement(event) {
       let teachersWithQuota = allTeachers.map((teacher) => {
         const quotaSettings = Array.isArray(teacher.quota_settings) ? teacher.quota_settings : [];
 
-          const approvedByCode = new Map();
-          quotaSettings.forEach((item) => {
-            if (!['level1', 'level2', 'level3'].includes(item.type)) return;
-            const code = String(item.code || '').trim();
-            if (!this.codeMatches(specializedCode, code)) return;
+        const approvedByCode = new Map();
+        quotaSettings.forEach((item) => {
+          if (!['level1', 'level2', 'level3'].includes(item.type)) return;
+          const code = String(item.code || '').trim();
+          if (!this.codeMatches(specializedCode, code)) return;
+          if (useQuota) {
             const itemTrack = this.normalizeTrackValue(item.track || '全日制');
             if (!allowedTracks.includes(itemTrack)) return;
-            const maxQuota = Number(item.max_quota || 0);
-            const usedQuota = Number(item.used_quota || 0);
-            const remaining = Math.max(maxQuota - usedQuota, 0);
+          }
+          const maxQuota = Number(item.max_quota || 0);
+          const usedQuota = Number(item.used_quota || 0);
+          const remaining = Math.max(maxQuota - usedQuota, 0);
           approvedByCode.set(code, (approvedByCode.get(code) || 0) + remaining);
         });
 

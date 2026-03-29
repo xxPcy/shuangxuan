@@ -91,7 +91,7 @@ exports.main = async (event, context) => {
     const level2Holders = quotaHolders.level2_holders || {};
     const level3Holders = quotaHolders.level3_holders || {};
 
-    if (allowedCodesByTrack.size === 0) {
+    if (useQuota && allowedCodesByTrack.size === 0) {
       return {
         success: true,
         data: [],
@@ -163,11 +163,13 @@ exports.main = async (event, context) => {
         if (!['level1', 'level2', 'level3'].includes(item.type)) return;
         const code = String(item.code || '').trim();
         if (!codeMatches(code)) return;
-        const itemTrack = normalizeTrack(item.track || '全日制');
-        if (!allowedTracks.includes(itemTrack)) return;
-        const allowedCodeSet = allowedCodesByTrack.get(itemTrack);
-        // 该 track 未在 Logic 给当前三级专业配置，或 code 不在该 track 的专业链路里，直接跳过
-        if (!allowedCodeSet || !allowedCodeSet.has(code)) return;
+        if (useQuota) {
+          const itemTrack = normalizeTrack(item.track || '全日制');
+          if (!allowedTracks.includes(itemTrack)) return;
+          const allowedCodeSet = allowedCodesByTrack.get(itemTrack);
+          // 该 track 未在 Logic 给当前三级专业配置，或 code 不在该 track 的专业链路里，直接跳过
+          if (!allowedCodeSet || !allowedCodeSet.has(code)) return;
+        }
         const maxQuota = Number(item.max_quota || 0);
         const usedQuota = Number(item.used_quota || 0);
         const remaining = Math.max(maxQuota - usedQuota, 0);

@@ -180,12 +180,11 @@ Page({
   // 接受学生申请
   acceptStudent: async function (event) {
     console.log("点击测试")
-    const { selectedStudent, teacher, index } = this.data;
+    const { selectedStudent, teacher } = this.data;
     const _ = db.command;
     const that = this;
     const Tec = teacher;
     const Tec_id = Tec._id;
-    const item = this.data.prestudent[index];
     this.setData({ acceptstate: true });//选择完就将按钮设置为禁用状态
     if (!selectedStudent.studentId || !Tec._id) {
       wx.showToast({
@@ -247,9 +246,11 @@ Page({
       }
   
   
-        const level3Code = latestStudent.level3_code || latestStudent.specializedCode || '';
-        const studentUseQuota = true; // 现在所有学生都统一走到扣减名额的逻辑
-        const studentTrack = this.normalizeTrackValue(latestStudent.selectedTrack || latestStudent.track || '全日制');      if (!level3Code) {
+      const level3Code = latestStudent.level3_code || latestStudent.specializedCode || '';
+      const studentUseQuota = !!latestStudent.useQuota;
+      const studentTrack = this.normalizeTrackValue(latestStudent.selectedTrack || latestStudent.track || '全日制');
+
+      if (!level3Code) {
         wx.hideLoading();
         this.setData({ acceptstate: false });
         wx.showToast({
@@ -370,28 +371,46 @@ Page({
         return;
       }
   
-      await teacherUpdate; // 这里把原本的 Promise.all 换成只需等待导师信息更新（因之前已经await过了学生信息）
-
-      // **从每个剩余学生的角度：自下而上检查是否还有名额**
+      await Promise.all([studentUpdate, teacherUpdate]);
+  
+      // **检查招生名额**
       const teacherData = await db.collection('Teacher').doc(Tec_id).get();
-      const currentQuotas = teacherData.data.quota_settings || [];
+      let quotaExhausted = false;
+      if (studentUseQuota && Array.isArray(teacherData.data.quota_settings) && level3Code) {
+        const matchedCandidates = teacherData.data.quota_settings
+          .filter((item) =>
+            ['level1', 'level2', 'level3'].includes(item.type) &&
+            String(level3Code).startsWith(String(item.code || '')) &&
+            this.normalizeTrackValue(item.track) === studentTrack
+          );
 
-      // 寻找仍然有可能被录取的学生（即他们还能匹配到有空余名额的池子）
-      const studentsToReturn = this.data.prestudent
-        .filter((s) => {
-          if (s.studentId === item.studentId) return false; // 排除刚刚录取的这名学生自身
+        quotaExhausted = matchedCandidates.length > 0 && matchedCandidates.every((item) =>
+          Number(item.max_quota || 0) - Number(item.used_quota || 0) <= 0
+        );
+      }
 
-          const sTrack = this.normalizeTrackValue(s.track);
-          const sCode = String(s.level3_code || s.specialized);
-
-          // 核心思路：从学生自己的底层代码向上看，还有没有能装得下他的"池子"
-          const hasAvailableQuota = currentQuotas.some((q) => {
-            const isMatch = ['level1', 'level2', 'level3'].includes(q.type) &&
-                            sCode.startsWith(String(q.code || '')) &&
-                            this.normalizeTrackValue(q.track) === sTrack;
-            
-            const hasSpace = (Number(q.max_quota || 0) - Number(q.used_quota || 0)) > 0;
-            return isMatch && hasSpace;
+      if (quotaExhausted) {
+        const selectedCode = String(level3Code || '').trim();
+        const currentPrestudents = Array.isArray(teacherData.data.prestudent) ? teacherData.data.prestudent : [];
+        const studentsToReturn = currentPrestudents
+          .filter((s) => {
+            const pendingCode = String(s.specializedCode || s.level3_code || '').trim();
+            const pendingTrack = this.normalizeTrackValue(s.track || '全日制');
+            return pendingCode === selectedCode && pendingTrack === studentTrack;
+          })
+          .map((s) => s.studentId)
+          .filter((id) => id && id !== selectedStudent.studentId);
+  
+        if (studentsToReturn.length > 0) {
+          await wx.cloud.callFunction({
+            name: 'SelectUpdate',
+            data: {
+              tecId: Tec_id,
+              tecName: Tec.name,
+              studentIds: studentsToReturn,
+              reason: '由于导师名额已满，被自动退回。',
+              timestamp: new Date().getTime(),
+            },
           });
 
           // 如果该学生往上看，所有的匹配池（不管是 0855 还是 08）都没名额了，那就必须退回（也就是 !hasAvailableQuota 为 true）

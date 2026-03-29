@@ -157,34 +157,28 @@ Page({
 
           const orderMap = { level1: 1, level2: 2, level3: 3 };
 
-          let rawQuotaInfo = teacherData.quota_settings
-              .filter((item) => ['level1', 'level2', 'level3'].includes(item.type))
-              .map((item) => {
-                const total = Number(item.max_quota || 0);
-                const used = Number(item.used_quota || 0);
-                const remaining = Math.max(total - used, 0);
-                const pending = Number(item.pending_quota || 0);
-                const normalizedTrack = this.normalizeTrackValue(item.track);
-                
-                teacherTracksSet.add(normalizedTrack);
-
-                return {
-                  key: item.code,
-                  track: normalizedTrack,
-                  uiKey: `${String(item.code)}__${normalizedTrack}`,
-                  label: item.name || item.code,
-                  level: typeText[item.type] || item.type,
-                  levelOrder: orderMap[item.type] || 99,
-                  total,
-                  used,
-                  remaining,
-                  pending
-                };
-              });
-              
-            quotaInfo = rawQuotaInfo
-                .filter(item => item.total > 0 || item.used > 0 || item.remaining > 0 || item.pending > 0)
-                .sort((a, b) => {
+          quotaInfo = teacherData.quota_settings
+            .filter((item) => ['level1', 'level2', 'level3'].includes(item.type))
+            .map((item) => {
+              const total = Number(item.max_quota || 0);
+              const used = Number(item.used_quota || 0);
+              const remaining = Math.max(total - used, 0);
+              const pending = Number(item.pending_quota || 0);
+              const normalizedTrack = this.normalizeTrackValue(item.track);
+              return {
+                key: item.code,
+                track: normalizedTrack,
+                uiKey: `${String(item.code)}__${normalizedTrack}`,
+                label: item.name || item.code,
+                level: typeText[item.type] || item.type,
+                levelOrder: orderMap[item.type] || 99,
+                total,
+                used,
+                remaining,
+                pending
+              };
+            })
+            .sort((a, b) => {
               if (a.levelOrder !== b.levelOrder) return a.levelOrder - b.levelOrder;
               const codeCmp = String(a.key).localeCompare(String(b.key));
               if (codeCmp !== 0) return codeCmp;
@@ -213,13 +207,10 @@ Page({
         }
 
         const sectionMap = new Map();
-        
-        // 渲染老师实际拥有的所有类（忽略是否为0）
-        const teacherTracksArray = Array.from(teacherTracksSet);
-        teacherTracksArray.forEach((track) => {
+        const defaultOrder = ['全日制', '联培', '非全日制', '士兵'];
+        defaultOrder.forEach((track) => {
           sectionMap.set(track, { track, expanded: true, items: [] });
         });
-
         quotaInfo.forEach((item) => {
           const track = this.normalizeTrackValue(item.track);
           if (!sectionMap.has(track)) {
@@ -229,6 +220,7 @@ Page({
         });
 
         const quotaTrackSections = Array.from(sectionMap.values())
+          .filter((section) => section.items.length > 0)
           .sort((a, b) => this.getTrackOrder(a.track) - this.getTrackOrder(b.track));
 
         this.setData({

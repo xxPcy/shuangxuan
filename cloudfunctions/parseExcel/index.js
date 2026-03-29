@@ -210,20 +210,7 @@ exports.main = async (event, context) => {
       return raw;
     };
 
-    let lastTeacherId = '';
-    let lastTeacherName = '';
-    let lastLevel1Code = '';
-    let lastLevel1Name = '';
-    let lastLevel2Code = '';
-    let lastLevel2Name = '';
-
     sheets.forEach((sheet) => {
-      lastTeacherId = '';
-      lastTeacherName = '';
-      lastLevel1Code = '';
-      lastLevel1Name = '';
-      lastLevel2Code = '';
-      lastLevel2Name = '';
       const sheetName = String((sheet && sheet.name) || '').trim();
       const sheetTrack = normalizeTrack(sheetName.replace(/表$/, ''));
       const rows = (sheet && sheet.data) || [];
@@ -269,7 +256,7 @@ exports.main = async (event, context) => {
     
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
-      const rowTrack = normalizeTrack(row[row.length - 1] || "");
+      const rowTrack = normalizeTrack(row[12] || row[11] || "");
       
       // 跳过完全空的行（除去最后一个元素的 track，如果前面全空则跳过）
       const cells = row.slice(0, -1);
@@ -346,17 +333,14 @@ exports.main = async (event, context) => {
       if (!teacherData[teacherId]) {
         teacherData[teacherId] = {
           name: teacherName,
-          quotas: {} // 存储 专业代码__类型 -> 详细对象
+          quotas: {} // 存储 专业代码__类型 -> 增量值
         };
       }
 
       // 累加一级指标（按专业代码存储）- 同时统计全院总量
       if (level1Code && level1Value > 0) {
         const key = `${level1Code}__${rowTrack}`;
-        if (!teacherData[teacherId].quotas[key]) {
-          teacherData[teacherId].quotas[key] = { value: 0, type: 'level1', code: level1Code, name: level1Name, track: rowTrack };
-        }
-        teacherData[teacherId].quotas[key].value += level1Value;
+        teacherData[teacherId].quotas[key] = (teacherData[teacherId].quotas[key] || 0) + level1Value;
         if (!totalQuotaStats.level1[key]) {
           totalQuotaStats.level1[key] = { code: level1Code, name: level1Name, track: rowTrack, quota: 0, pending_approval: 0 };
         }
@@ -366,10 +350,7 @@ exports.main = async (event, context) => {
       // 累加二级指标（按专业代码存储）- 同时统计全院总量
       if (level2Code && level2Value > 0) {
         const key = `${level2Code}__${rowTrack}`;
-        if (!teacherData[teacherId].quotas[key]) {
-          teacherData[teacherId].quotas[key] = { value: 0, type: 'level2', code: level2Code, name: level2Name, track: rowTrack };
-        }
-        teacherData[teacherId].quotas[key].value += level2Value;
+        teacherData[teacherId].quotas[key] = (teacherData[teacherId].quotas[key] || 0) + level2Value;
         if (!totalQuotaStats.level2[key]) {
           totalQuotaStats.level2[key] = { code: level2Code, name: level2Name, track: rowTrack, quota: 0, pending_approval: 0 };
         }
@@ -379,10 +360,7 @@ exports.main = async (event, context) => {
       // 累加三级指标（按专业代码存储）- 同时统计全院总量
       if (level3Code && level3Value > 0) {
         const key = `${level3Code}__${rowTrack}`;
-        if (!teacherData[teacherId].quotas[key]) {
-          teacherData[teacherId].quotas[key] = { value: 0, type: 'level3', code: level3Code, name: level3Name, track: rowTrack };
-        }
-        teacherData[teacherId].quotas[key].value += level3Value;
+        teacherData[teacherId].quotas[key] = (teacherData[teacherId].quotas[key] || 0) + level3Value;
         if (!totalQuotaStats.level3[key]) {
           totalQuotaStats.level3[key] = { code: level3Code, name: level3Name, track: rowTrack, quota: 0, pending_approval: 0 };
         }
@@ -474,23 +452,16 @@ exports.main = async (event, context) => {
 
       // 在内存中计算更新后的 quota_settings
       let hasUpdate = false;
-      
-      // 1. 根据已有配置去重并转换为 Map，修复老数据可能存在的重复问题
-      const settingsMap = new Map();
-      quotaSettings.forEach(item => {
+      const updatedQuotaSettings = quotaSettings.map(item => {
         const code = String(item.code || '').trim();
         const track = normalizeTrack(item.track || '全日制');
         const key = `${code}__${track}`;
-        
-        if (settingsMap.has(key)) {
-          // 如果发现数据库中有重复项，合并它们的值（容错老数据）
-          const existing = settingsMap.get(key);
-          existing.max_quota = (Number(existing.max_quota) || 0) + (Number(item.max_quota) || 0);
-          existing.used_quota = (Number(existing.used_quota) || 0) + (Number(item.used_quota) || 0);
-          existing.pending_quota = (Number(existing.pending_quota) || 0) + (Number(item.pending_quota) || 0);
-          hasUpdate = true; // 有重复项被合并，标记为需要更新
-        } else {
-          settingsMap.set(key, { ...item });
+        if (quotas[key] && quotas[key] > 0) {
+          hasUpdate = true;
+          return {
+            ...item,
+            pending_quota: (item.pending_quota || 0) + quotas[key]
+          };
         }
       });
       

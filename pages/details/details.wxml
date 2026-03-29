@@ -37,36 +37,21 @@
   </view>
 </view>
 
-<view class="quota-title">可选专业（按方向分组下拉选择）</view>
-
-<block wx:for="{{groupedQuota}}" wx:key="trackName">
-  <view class="collapse-group" wx:if="{{item.items.length > 0}}">
-    <!-- 折叠标题 -->
-    <view class="collapse-header" bindtap="toggleCollapse" data-track="{{item.trackName}}">
-      <text class="collapse-title">{{item.trackName}}（{{item.items.length}}）</text>
-      <text class="collapse-icon {{item.expanded ? 'expanded' : ''}}">▼</text>
-    </view>
-
-    <!-- 下拉内容 -->
-    <view class="collapse-content" wx:if="{{item.expanded}}">
-      <view class="quota-grid">
-        <view class="quota-item" wx:for="{{item.items}}" wx:key="key" wx:for-item="btn">
-          <button
-            class="quota-btn"
-            style="background-color: {{btn.color}};"
-            data-code="{{btn.code}}"
-            data-name="{{btn.name}}"
-            data-base-name="{{btn.baseName}}"
-            data-track="{{btn.track}}"
-            data-disabled="{{btn.disabled}}"
-            bindtap="selectTeacherByCategory"
-            disabled="{{btn.disabled}}"
-          >
-            <view class="btn-text-name">{{btn.name}}</view>
-            <view class="btn-text-code">{{btn.code}}</view>
-          </button>
-        </view>
-      </view>
-    </view>
+<view class="quota-title">可选专业（按 Logic 动态生成）</view>
+<view class="quota-grid">
+  <view class="quota-item" wx:for="{{quotaButtons}}" wx:key="key">
+    <button
+      class="quota-btn"
+      style="background-color: {{item.color}};"
+      data-code="{{item.code}}"
+      data-name="{{item.name}}"
+      data-base-name="{{item.baseName}}"
+      data-track="{{item.track}}"
+      data-disabled="{{item.disabled}}"
+      bindtap="selectTeacherByCategory"
+      disabled="{{item.disabled}}"
+    >
+      {{item.name}}（{{item.code}}）
+    </button>
   </view>
 </block>

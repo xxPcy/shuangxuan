@@ -8,7 +8,6 @@ Page({
     StuID: '',
     teacherID: '',
     quotaButtons: [],
-    groupedQuota: [],
     useQuota: true,
     studentTrack: '全日制'
   },
@@ -82,35 +81,6 @@ Page({
     if (t === '非全日制') return ['非全日制'];
     if (t === '全日制') return ['全日制', '联培'];
     return [t];
-  },
-
-  // 将所有按钮按赛道分组
-  groupQuotaButtons(buttons) {
-    const tracks = ['全日制', '联培', '非全日制', '士兵'];
-    const groups = tracks.map(track => {
-      // 默认非全日制和士兵赛道收起，其他展开
-      const expanded = (track === '全日制' || track === '联培');
-      return {
-        trackName: track,
-        expanded: expanded,
-        items: buttons.filter(btn => btn.track === track)
-      };
-    });
-    // 过滤掉完全没有按钮的赛道
-    return groups.filter(g => g.items.length > 0);
-  },
-
-  // 切换折叠状态
-  toggleCollapse(e) {
-    const targetTrack = e.currentTarget.dataset.track;
-    const { groupedQuota } = this.data;
-    const newGrouped = groupedQuota.map(group => {
-      if (group.trackName === targetTrack) {
-        return { ...group, expanded: !group.expanded };
-      }
-      return group;
-    });
-    this.setData({ groupedQuota: newGrouped });
   },
 
   buildQuotaButtons(logicRows, teacher, student, status) {
@@ -199,33 +169,7 @@ Page({
       content: `确定申请导师 ${teacher.name} 的 ${selectedName}（${selectedCode}）名额吗？`,
       success: async (res) => {
         if (res.confirm) {
-          wx.showLoading({ title: '安全校验中...', mask: true });
-          
-          try {
-            // 选导师前，先去数据库里查一下当前学生的最新状态
-            const stuRes = await db.collection('Stu').doc(student._id).get();
-            const currentStatus = stuRes.data.status;
-            
-            // 如果已经被标记为选择了相关的状态
-            if (currentStatus === 'pending' || currentStatus === 'chosed') {
-              wx.hideLoading();
-              wx.showToast({ title: '您已选择过导师，请勿重复操作', icon: 'none', duration: 2500 });
-              
-              // 强制刷新本地界面，收起禁用状态
-              this.setData({ status: currentStatus });
-              const buttons = this.data.quotaButtons.map((item) => ({ ...item, disabled: true, color: '#d3d3d3' }));
-              this.setData({ quotaButtons: buttons, groupedQuota: this.groupQuotaButtons(buttons) });
-              return;
-            }
-            
-            wx.hideLoading();
-            // 校验通过，走最后的提交流程
-            this.submitSelection(student, teacher, selectedCode, selectedName, selectedTrack);
-          } catch (err) {
-            wx.hideLoading();
-            console.error('状态校验失败', err);
-            wx.showToast({ title: '网络校验异常，请重试', icon: 'none' });
-          }
+          this.submitSelection(student, teacher, selectedCode, selectedName, selectedTrack);
         }
       }
     });
@@ -259,18 +203,6 @@ Page({
         status: 'pending',
         selectedField: selectedCode,
         selectedTrack: selectedTrack
-      }
-    }).then((res) => {
-      // res.stats.updated 值为 0，说明被另外一台设备或者并发网络请求抢占了
-      if (res.stats && res.stats.updated === 0) {
-        wx.hideLoading();
-        wx.showToast({ title: '您已提交过申请，不可重复选择', icon: 'none', duration: 2500 });
-        
-        // 强制刷新本地界面禁用状态
-        this.setData({ status: 'pending' });
-        const buttons = this.data.quotaButtons.map((item) => ({ ...item, disabled: true, color: '#d3d3d3' }));
-        this.setData({ quotaButtons: buttons, groupedQuota: this.groupQuotaButtons(buttons) });
-        return Promise.reject(new Error('CONCURRENCY_BLOCKED')); // 打断后续执行
       }
 
       // 如果当前设备抢到了锁，继续分配业务
