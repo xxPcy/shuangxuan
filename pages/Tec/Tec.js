@@ -122,7 +122,7 @@ Page({
 
     if (announcement) {
       wx.showModal({
-        title: `公告详情`,
+        title: `【${announcement.category}】详情`,
         content: announcement.fullContent,
         showCancel: false, // 不显示取消按钮
       });
@@ -146,8 +146,8 @@ Page({
         const logicRows = logicRes.data || [];
 
         let quotaInfo = [];
+        let teacherTracksSet = new Set();
 
-        // 新版：展示 quota_settings 的一级/二级/三级全部层级
         if (Array.isArray(teacherData.quota_settings) && teacherData.quota_settings.length > 0) {
           const typeText = {
             level1: '一级',
@@ -185,7 +185,7 @@ Page({
               return this.getTrackOrder(a.track) - this.getTrackOrder(b.track);
             });
 
-          // 若逻辑表里有该 code 的标准名称，则覆盖显示（避免历史名称不统一）
+          // 若逻辑表里有该 code 的标准名称，则覆盖显示
           const logicNameMap = {};
           logicRows.forEach((row) => {
             const track = this.normalizeTrackValue(row.track);
@@ -556,6 +556,12 @@ Page({
   },
 
   handleApprovalAction(e, action) {
+    // 防止快速连续点击
+    if (this.data.isProcessingApproval) {
+      return;
+    }
+    this.setData({ isProcessingApproval: true });
+
     const currentDataset = (e && e.currentTarget && e.currentTarget.dataset) || {};
     const targetDataset = (e && e.target && e.target.dataset) || {};
     const type = currentDataset.type || targetDataset.type;
@@ -579,6 +585,7 @@ Page({
     if (!pendingChange || !action) {
       console.warn('审批参数异常', { type, indexValue, pendingList });
       wx.showToast({ title: '审批参数异常，请重试', icon: 'none' });
+      this.setData({ isProcessingApproval: false });
       return;
     }
 
@@ -587,6 +594,7 @@ Page({
     const resolvedTrack = this.normalizeTrackValue(pendingChange.track || (String(resolvedKey || '').split('__')[1]) || '全日制');
     if (resolvedType === undefined || resolvedType === null || String(resolvedType) === '') {
       wx.showToast({ title: '未找到名额类型，请刷新', icon: 'none' });
+      this.setData({ isProcessingApproval: false });
       return;
     }
 
@@ -595,6 +603,7 @@ Page({
 
     if (isNaN(numericPendingValue) || numericPendingValue === 0) {
       wx.showToast({ title: '名额值不合法', icon: 'none' });
+      this.setData({ isProcessingApproval: false });
       return;
     }
 
@@ -613,8 +622,11 @@ Page({
       success: async (res) => {
         if (!res.confirm) {
           wx.showToast({ title: '操作已取消', icon: 'none' });
+          this.setData({ isProcessingApproval: false });
           return;
         }
+        
+        wx.showLoading({ title: '处理中...', mask: true }); // 显示进度条并添加透明遮罩，阻挡其他点击
 
         try {
           const db = wx.cloud.database();
@@ -624,7 +636,9 @@ Page({
 
           const hasQuotaSettings = Array.isArray(teacher.quota_settings) && teacher.quota_settings.length > 0;
           if (!hasQuotaSettings) {
+            wx.hideLoading();
             wx.showToast({ title: '导师缺少专业代码名额配置', icon: 'none' });
+            this.setData({ isProcessingApproval: false });
             return;
           }
 
@@ -633,7 +647,9 @@ Page({
             && this.normalizeTrackValue(item.track) === this.normalizeTrackValue(resolvedTrack)
           ));
           if (quotaIndex < 0) {
+            wx.hideLoading();
             wx.showToast({ title: '未找到待审批名额项(按code)', icon: 'none' });
+            this.setData({ isProcessingApproval: false });
             return;
           }
 
@@ -642,26 +658,58 @@ Page({
 
             const currentPending = Number(teacher.quota_settings[quotaIndex].pending_quota || pendingValue || 0);
             if (currentPending <= 0) {
+              wx.hideLoading();
               wx.showToast({ title: '名额已被处理，请刷新', icon: 'none' });
+              this.setData({ isProcessingApproval: false });
               return;
             }
 
             if (action === 'approve') {
-              await db.collection('Teacher').doc(teacherId).update({
+              const updateRes = await db.collection('Teacher').where({
+                _id: teacherId,
+                [`quota_settings.${quotaIndex}.pending_quota`]: currentPending // 关键并发锁：要求必须等于之前查到的待审批名额
+              }).update({
                 data: {
                   [`quota_settings.${quotaIndex}.max_quota`]: _.inc(currentPending),
                   [`quota_settings.${quotaIndex}.pending_quota`]: 0,
                   approval_status: 'approved'
                 }
               });
+
+              // 如果更新数为0，说明另一台设备抢先完成了操作，拒绝覆盖
+              if (!updateRes.stats || updateRes.stats.updated === 0) {
+                wx.hideLoading();
+                wx.showToast({ title: '已被其他设备处理完成', icon: 'none', duration: 2500 });
+                this.setData({ isProcessingApproval: false });
+                this.loadPendingChanges();
+                this.loadQuotaInfo();
+                return;
+              }
+
+              // 从前端列表中直接移除该项，避免刷新延迟导致还能被点击
+              const newList = pendingList.filter(item => !(String(item.code || item.key) === String(resolvedType) && this.normalizeTrackValue(item.track) === this.normalizeTrackValue(resolvedTrack)));
+              this.setData({ pendingChanges: newList });
+
               wx.showToast({ title: '审批成功', icon: 'success' });
             } else if (action === 'reject') {
-              await db.collection('Teacher').doc(teacherId).update({
+              const updateRes = await db.collection('Teacher').where({
+                _id: teacherId,
+                [`quota_settings.${quotaIndex}.pending_quota`]: currentPending // 关键并发锁
+              }).update({
                 data: {
                   [`quota_settings.${quotaIndex}.pending_quota`]: 0,
                   approval_status: 'rejected'
                 }
               });
+
+              if (!updateRes.stats || updateRes.stats.updated === 0) {
+                wx.hideLoading();
+                wx.showToast({ title: '已被其他设备处理完成', icon: 'none', duration: 2500 });
+                this.setData({ isProcessingApproval: false });
+                this.loadPendingChanges();
+                this.loadQuotaInfo();
+                return;
+              }
 
               // 退回到总指标池（TotalQuota 的 pending_approval）
               const code = String(resolvedType || '');
@@ -704,6 +752,10 @@ Page({
                   timestamp: new Date()
                 }
               });
+              // 从前端列表中直接移除该项，避免刷新延迟导致还能被点击
+              const newList = pendingList.filter(item => !(String(item.code || item.key) === String(resolvedType) && this.normalizeTrackValue(item.track) === this.normalizeTrackValue(resolvedTrack)));
+              this.setData({ pendingChanges: newList });
+
               wx.showToast({ title: '操作成功', icon: 'success' });
             }
           }
@@ -713,7 +765,15 @@ Page({
         } catch (err) {
           console.error('操作失败:', err);
           wx.showToast({ title: '操作失败，请稍后重试', icon: 'none' });
+        } finally {
+          wx.hideLoading();
+          setTimeout(() => {
+            this.setData({ isProcessingApproval: false });
+          }, 800); // 延迟释放锁，等待页面重绘和列表刷新完成
         }
+      },
+      fail: () => {
+        this.setData({ isProcessingApproval: false });
       }
     });
   },

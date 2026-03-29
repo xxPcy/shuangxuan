@@ -43,7 +43,8 @@ Page({
       });
 
       const quotaButtons = this.buildQuotaButtons(logicRows, teacher, student, status);
-      this.setData({ quotaButtons });
+      const groupedQuota = this.groupQuotaButtons(quotaButtons);
+      this.setData({ quotaButtons, groupedQuota });
 
       if (status === 'pending' || status === 'chosed') {
         wx.showToast({ title: '您已选择过导师', icon: 'none' });
@@ -166,7 +167,7 @@ Page({
     wx.showModal({
       title: '确认选择',
       content: `确定申请导师 ${teacher.name} 的 ${selectedName}（${selectedCode}）名额吗？`,
-      success: (res) => {
+      success: async (res) => {
         if (res.confirm) {
           this.submitSelection(student, teacher, selectedCode, selectedName, selectedTrack);
         }
@@ -190,16 +191,21 @@ Page({
   submitSelection(student, teacher, selectedCode, selectedName, selectedTrack) {
     const _ = db.command;
 
-    db.collection('Stu').doc(student._id).update({
+    wx.showLoading({ title: '提交中...', mask: true }); 
+
+    // 使用 where 增加并发原子锁：只能在状态允许的情况下更新
+    db.collection('Stu').where({
+      _id: student._id,
+      status: 'chosing' 
+    }).update({
       data: {
         preselection: [teacher.name, teacher._id],
         status: 'pending',
         selectedField: selectedCode,
         selectedTrack: selectedTrack
       }
-    }).then(() => {
-      wx.showToast({ title: '申请成功，等待导师审核', icon: 'success' });
 
+      // 如果当前设备抢到了锁，继续分配业务
       return db.collection('Teacher').doc(teacher._id).update({
         data: {
           prestudent: _.push({
@@ -215,15 +221,25 @@ Page({
           })
         }
       });
-    }).then(() => {
+    }).then((res) => {
+      if (!res) return; // 如果被拦截了直接返回
+
+      wx.hideLoading();
+      wx.showToast({ title: '申请成功，等待导师审核', icon: 'success' });
+      
       this.setData({ status: 'pending' });
       const buttons = this.data.quotaButtons.map((item) => ({
         ...item,
         disabled: true,
         color: '#d3d3d3'
       }));
-      this.setData({ quotaButtons: buttons });
+      const groupedQuota = this.groupQuotaButtons(buttons);
+      this.setData({ quotaButtons: buttons, groupedQuota });
     }).catch((err) => {
+      if (err && err.message === 'CONCURRENCY_BLOCKED') {
+        return; // 静默处理被并发防重系统截断的异常
+      }
+      wx.hideLoading();
       console.error('提交选择失败', err);
       wx.showToast({ title: '提交失败，请重试', icon: 'none' });
     });

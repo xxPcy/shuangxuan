@@ -5,7 +5,7 @@
   <textarea name="content" placeholder="请输入公告内容" value="{{announcementContent}}"></textarea>
   
   <!-- 公告类别选择 -->
-  <picker name="category" value="{{category}}" range="{{categories}}" bindchange="onCategoryChange">
+  <picker name="category" value="{{categoryIndex}}" range="{{categories}}" bindchange="onCategoryChange">
     <view class="picker">
       <text>类别选择：{{category}}</text>
     </view>
@@ -32,7 +32,7 @@
   <view class="modal-content">
     <form bindsubmit="saveAnnouncement">
       <textarea name="content" placeholder="修改公告内容" value="{{currentAnnouncement.fullContent}}"></textarea>
-      <picker name="category" value="{{currentAnnouncement.category}}" range="{{categories}}" bindchange="onEditCategoryChange">
+      <picker name="category" value="{{currentAnnouncement.categoryIndex}}" range="{{categories}}" bindchange="onEditCategoryChange">
         <view class="picker">
           <text>{{currentAnnouncement.category}}</text>
         </view>
@@ -210,7 +210,21 @@
         <view wx:if="{{availableQuotas.length === 0}}" style="color: #999; padding: 10rpx 0;">
           <text>暂无可用名额</text>
         </view>
-      <button data-id="{{searchedTeacher.ID}}" bindtap="showTeacherEditPopup" class="modify">编辑名额</button> 
+
+          <block wx:for="{{availableQuotaGroups}}" wx:key="track">
+            <view wx:if="{{activeAvailableTrack === item.track}}">
+              <view wx:if="{{item.list.length === 0}}" style="text-align: center; color: #999; padding: 20rpx 0; font-size: 28rpx;">暂无相应的指标额度</view>
+              <block wx:for="{{item.list}}" wx:key="uiKey">
+                <view class="quota-row">
+                  <text>{{item.name}}（{{item.code}}，{{item.trackText}}）：{{item.total_available}}（含{{item.pending_quota}}个待审批）</text>
+                </view>
+              </block>
+            </view>
+          </block>
+          <view wx:if="{{availableQuotaGroups.length === 0}}" style="color: #999; padding: 10rpx 0;">
+            <text>暂无可用名额</text>
+          </view>
+        <button data-id="{{searchedTeacher.ID}}" bindtap="showTeacherEditPopup" class="modify">编辑名额</button> 
       <!-- 重置密码按钮 -->
       <button class="ResetPassword" bindtap="resetTeacherPassword">重置密码</button>
     </view>
@@ -275,15 +289,18 @@
 
   <!-- 上传和导出功能 -->
   <view class="button-group">
+    <button bind:tap="logic">导入逻辑表</button>
     <button bindtap="chooseStudentExcel">创建学生</button>
   <button bindtap="chooseTeacherExcel">创建导师</button>
+  <button bindtap="outPutexample">导出《新增指标》模板</button>
   <button bindtap="chooseTeacherzhaoshengExcel">新增指标</button>
   
   <button bindtap="exportExcel">导出双选名单（学生）</button>
   <button bindtap="exportTeacherQuota">导出双选结果（导师）</button>
-  <button bindtap="clearSystem">清空系统</button>
+  <button bindtap="showAdminPasswordPopup">修改登录密码</button>
+
   <!-- <button bind:tap="detailmention">查看导师信息</button> -->
-  <button bind:tap="logic">导入逻辑表</button>
+
   <button bindtap="showPopup">查看退回记录</button>
   <button bindtap="outPutexample">导出《新增指标》模板</button>
   <button bindtap="showAdminPasswordPopup">修改登录密码</button>

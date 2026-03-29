@@ -260,14 +260,34 @@ Page({
         return;
       }
 
-      // **事务更新学生和导师信息**
-      const studentUpdate = db.collection('Stu').doc(selectedStudent.studentId).update({
+      // **严格并发检查：要求学生仍处于 pending，且申请项（selectedField/selectedTrack）未变化**
+      // 这样可以避免学生在老师确认前取消或修改申请，导致老师错误确认并扣减指标
+      const expectedField = latestStudent.selectedField || selectedStudent.selectedField || null;
+      const expectedTrack = latestStudent.selectedTrack || selectedStudent.selectedTrack || null;
+
+      const studentQuery = {
+        _id: selectedStudent.studentId,
+        status: 'pending'
+      };
+      if (expectedField) studentQuery.selectedField = expectedField;
+      if (expectedTrack) studentQuery.selectedTrack = expectedTrack;
+
+      const studentUpdateRes = await db.collection('Stu').where(studentQuery).update({
         data: {
           status: 'chosed',
           selected: Tec.name,
           selectedTecId: Tec.Id,
         },
       });
+
+      // 如果更新数为 0 表示并发/状态变更导致已被抢占或学生已取消申请
+      if (!studentUpdateRes.stats || studentUpdateRes.stats.updated === 0) {
+        wx.hideLoading();
+        this.setData({ acceptstate: false, showModal: false });
+        wx.showToast({ title: '已被前一台设备处理或学生已取消', icon: 'none', duration: 2500 });
+        this.loadPendingStudents(Tec_id); // 刷新
+        return;
+      }
 
       let teacherUpdate;
 
@@ -392,9 +412,25 @@ Page({
               timestamp: new Date().getTime(),
             },
           });
-        }
+
+          // 如果该学生往上看，所有的匹配池（不管是 0855 还是 08）都没名额了，那就必须退回（也就是 !hasAvailableQuota 为 true）
+          return !hasAvailableQuota;
+        })
+        .map((s) => s.studentId);
+
+      if (studentsToReturn.length > 0) {
+        await wx.cloud.callFunction({
+          name: 'SelectUpdate',
+          data: {
+            tecId: Tec_id,
+            tecName: Tec.name,
+            studentIds: studentsToReturn,
+            reason: '由于导师名额已满，已被自动退回。',
+            timestamp: new Date().getTime(),
+          },
+        });
       }
-  
+
       wx.hideLoading();
       wx.showToast({
         title: '操作成功',
