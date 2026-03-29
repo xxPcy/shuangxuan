@@ -37,21 +37,24 @@
   </view>
 </view>
 
-<view class="quota-title">可选专业（按 Logic 动态生成）</view>
-<view class="quota-grid">
-  <view class="quota-item" wx:for="{{quotaButtons}}" wx:key="key">
-    <button
-      class="quota-btn"
-      style="background-color: {{item.color}};"
-      data-code="{{item.code}}"
-      data-name="{{item.name}}"
-      data-base-name="{{item.baseName}}"
-      data-track="{{item.track}}"
-      data-disabled="{{item.disabled}}"
-      bindtap="selectTeacherByCategory"
-      disabled="{{item.disabled}}"
-    >
-      {{item.name}}（{{item.code}}）
-    </button>
+<block wx:if="{{quotaButtons && quotaButtons.length > 0}}">
+  <view class="quota-title">可选专业（按 Logic 动态生成）</view>
+  <view class="quota-grid">
+    <view class="quota-item" wx:for="{{quotaButtons}}" wx:key="key">
+      <button
+        class="quota-btn"
+        style="background-color: {{item.color}};"
+        data-code="{{item.code}}"
+        data-name="{{item.name}}"
+        data-base-name="{{item.baseName}}"
+        data-track="{{item.track}}"
+        data-disabled="{{item.disabled}}"
+        bindtap="selectTeacherByCategory"
+        disabled="{{item.disabled}}"
+      >
+        {{item.name}}（{{item.code}}）
+      </button>
+    </view>
   </view>
 </block>
+<view wx:else class="quota-title">暂无可选专业名额</view>
