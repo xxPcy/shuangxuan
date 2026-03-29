@@ -247,19 +247,20 @@ exports.main = async (event, context) => {
     };
     
     // 用于记录上一行的合并单元格信息
-    let lastTeacherId = '';
-    let lastTeacherName = '';
-    let lastLevel1Code = '';
-    let lastLevel1Name = '';
-    let lastLevel2Code = '';
-    let lastLevel2Name = '';
+    lastTeacherId = '';
+    lastTeacherName = '';
+    lastLevel1Code = '';
+    lastLevel1Name = '';
+    lastLevel2Code = '';
+    lastLevel2Name = '';
     
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
       const rowTrack = normalizeTrack(row[12] || row[11] || "");
       
-      // 跳过完全空的行
-      if (!row || row.length === 0 || row.every(cell => !cell)) {
+      // 跳过完全空的行（除去最后一个元素的 track，如果前面全空则跳过）
+      const cells = row.slice(0, -1);
+      if (!cells || cells.length === 0 || cells.every(cell => !cell || String(cell).trim() === '')) {
         continue;
       }
       
@@ -462,8 +463,35 @@ exports.main = async (event, context) => {
             pending_quota: (item.pending_quota || 0) + quotas[key]
           };
         }
-        return item;
       });
+      
+      // 2. 将本次导入的增量合并进 Map
+      for (const key in quotas) {
+        const quotaData = quotas[key];
+        const addValue = Number(quotaData.value) || 0;
+        
+        if (addValue > 0) {
+          hasUpdate = true;
+          if (settingsMap.has(key)) {
+            // 已有记录，增加待审批指标
+            const existing = settingsMap.get(key);
+            existing.pending_quota = (Number(existing.pending_quota) || 0) + addValue;
+          } else {
+            // 没有记录，创建全新记录
+            settingsMap.set(key, {
+              type: quotaData.type,
+              code: quotaData.code,
+              name: quotaData.name,
+              track: quotaData.track,
+              max_quota: 0,
+              used_quota: 0,
+              pending_quota: addValue
+            });
+          }
+        }
+      }
+      
+      const updatedQuotaSettings = Array.from(settingsMap.values());
 
       // 如果有更新，创建更新任务
       if (hasUpdate) {
@@ -629,27 +657,22 @@ exports.main = async (event, context) => {
         const teacher = teacherData[teacherId];
         const teacherName = teacher.name;
         
-        for (let code in teacher.quotas) {
-          const quota = teacher.quotas[code];
-          if (quota > 0) {
-            // 根据代码长度判断层级
-            let level;
-            if (code.length <= 2) {
-              level = 'level1';
-            } else if (code.length <= 4) {
-              level = 'level2';
-            } else {
-              level = 'level3';
+        for (let key in teacher.quotas) {
+          const quotaObj = teacher.quotas[key];
+          const quotaVal = quotaObj.value;
+          if (quotaVal > 0) {
+            const level = quotaObj.type; // 'level1', 'level2' 或 'level3'
+            // 生成 QuotaHolders 中的键名格式，如 "08|全日制"
+            const storageKey = `${quotaObj.code}|${quotaObj.track}`;
+            
+            if (!quotaHolderData[level][storageKey]) {
+              quotaHolderData[level][storageKey] = [];
             }
             
-            if (!quotaHolderData[level][code]) {
-              quotaHolderData[level][code] = [];
-            }
-            
-            quotaHolderData[level][code].push({
+            quotaHolderData[level][storageKey].push({
               teacherId: teacherId,
               teacherName: teacherName,
-              quota: quota
+              quota: quotaVal
             });
           }
         }

@@ -59,7 +59,7 @@ viewAnnouncement(event) {
 
   if (announcement) {
     wx.showModal({
-      title: `公告详情`,
+      title: `【${announcement.category}】详情`,
       content: announcement.fullContent,
       showCancel: false, // 不显示取消按钮
     });
@@ -222,17 +222,24 @@ viewAnnouncement(event) {
       return;
     }
 
-    const buildHistoryTeacherSet = () => {
-      if (!useQuota) return Promise.resolve(new Set());
-      return db.collection('QuotaHolders').doc('quotaholder').get()
+      const buildHistoryTeacherSet = () => {
+        // 只有在占用指标的情况下，我们才不需要历史兜底数据（但保险起见还是都可以查）
+        if (useQuota) return Promise.resolve(new Set());
+        return db.collection('QuotaHolders').doc('quotaholder').get()
         .then((res) => {
           const doc = res.data || {};
           const holders = [doc.level1_holders || {}, doc.level2_holders || {}, doc.level3_holders || {}];
           const set = new Set();
-          holders.forEach((holderMap) => {
-            Object.keys(holderMap).forEach((code) => {
-              if (!this.codeMatches(specializedCode, code)) return;
-              (holderMap[code] || []).forEach((item) => {
+              holders.forEach((holderMap) => {
+                Object.keys(holderMap).forEach((key) => {
+                  const parts = key.includes('__') ? key.split('__') : key.split('|');
+                  const pureCode = parts[0];
+                  const pureTrack = parts.length > 1 ? this.normalizeTrackValue(parts[1]) : '全日制';
+
+                  if (!this.codeMatches(specializedCode, pureCode)) return;
+                if (parts.length > 1 && !allowedTracks.includes(pureTrack)) return;
+
+                (holderMap[key] || []).forEach((item) => {
                 const teacherId = String(item.teacherId || '').trim();
                 if (teacherId) set.add(teacherId);
               });
@@ -279,31 +286,28 @@ viewAnnouncement(event) {
           approvedByCode.set(code, (approvedByCode.get(code) || 0) + remaining);
         });
 
-        const level3Code = specializedCode.length >= 6 ? specializedCode.slice(0, 6) : '';
-        const level2Code = specializedCode.length >= 4 ? specializedCode.slice(0, 4) : '';
-        const level1Code = specializedCode.length >= 2 ? specializedCode.slice(0, 2) : '';
-        const firstAvailableCode = [level3Code, level2Code, level1Code].find((code) => code && Number(approvedByCode.get(code) || 0) > 0) || '';
-        const matchedApprovedQuota = firstAvailableCode ? Number(approvedByCode.get(firstAvailableCode) || 0) : 0;
+          const level3Code = specializedCode.length >= 6 ? specializedCode.slice(0, 6) : '';
+          const level2Code = specializedCode.length >= 4 ? specializedCode.slice(0, 4) : '';
+          const level1Code = specializedCode.length >= 2 ? specializedCode.slice(0, 2) : '';
+            const firstAvailableCode = [level3Code, level2Code, level1Code].find((code) => code && Number(approvedByCode.get(code) || 0) > 0) || '';
+            const matchedApprovedQuota = firstAvailableCode ? Number(approvedByCode.get(firstAvailableCode) || 0) : 0;
 
-        return {
-          ...teacher,
-          matchedCode: firstAvailableCode || specializedCode,
-          matchedConfirmedQuota: matchedApprovedQuota,
-          matchedPendingQuota: 0,
-          matchedQuota: matchedApprovedQuota
-        };
-      });
+            // 所有类型的学生现在全部采用正常的扣减指标逻辑，必须剩余可用名额大于0才能匹配
+            const matchedQuota = matchedApprovedQuota; 
 
-      if (useQuota) {
-        teachersWithQuota = teachersWithQuota.filter((item) => Number(item.matchedQuota || 0) > 0);
-      } else {
-        teachersWithQuota = teachersWithQuota.filter((item) => {
-          const teacherId = String(item.Id || '').trim();
-          return historyTeacherIdSet.has(teacherId);
+            return {
+              ...teacher,
+            matchedCode: firstAvailableCode || specializedCode,
+            matchedConfirmedQuota: matchedApprovedQuota,
+            matchedPendingQuota: 0,
+            matchedQuota: matchedQuota
+            };
         });
-      }
 
-      teachersWithQuota.sort((a, b) => {
+        // 统一过滤，只要对应的名额 <= 0 就无法看到该导师
+        teachersWithQuota = teachersWithQuota.filter((item) => Number(item.matchedQuota || 0) > 0);
+
+        teachersWithQuota.sort((a, b) => {
         if (Number(b.matchedQuota || 0) !== Number(a.matchedQuota || 0)) {
           return Number(b.matchedQuota || 0) - Number(a.matchedQuota || 0);
         }

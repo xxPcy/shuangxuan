@@ -54,4 +54,4 @@
       {{item.name}}（{{item.code}}）
     </button>
   </view>
-</view>
+</block>

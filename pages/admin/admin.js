@@ -6,6 +6,7 @@ const tabService = require("../utils/tab-service");
 Page({
   data: {
     categories: ['学生公告', '导师公告', '全体公告'], // 公告类别列表
+    categoryIndex: 2, // 默认对应 '全体公告'
     category: '全体公告', // 默认选择全体公告
     announcements: [], // 公告列表
     announcementContent: '', // 发布公告的内容
@@ -71,6 +72,7 @@ Page({
   // 公告类别选择事件
 onCategoryChange(e) {
   this.setData({
+    categoryIndex: e.detail.value,
     category: this.data.categories[e.detail.value], // 更新选中的公告类别
   });
 },
@@ -1393,9 +1395,10 @@ loadAnnouncements() {
 editAnnouncement(event) {
   const announcementId = event.currentTarget.dataset.id;
   const announcement = this.data.announcements.find((item) => item.id === announcementId);
+  const cIndex = this.data.categories.indexOf(announcement.category) !== -1 ? this.data.categories.indexOf(announcement.category) : 2;
 
   this.setData({
-    currentAnnouncement: { ...announcement }, // 设置当前公告信息
+    currentAnnouncement: { ...announcement, categoryIndex: cIndex }, // 设置当前公告信息
     isEditing: true, // 显示编辑窗口
   });
 },
@@ -1465,6 +1468,7 @@ deleteAnnouncement() {
 // 编辑时更改公告类别
 onEditCategoryChange(e) {
   this.setData({
+    'currentAnnouncement.categoryIndex': e.detail.value,
     'currentAnnouncement.category': this.data.categories[e.detail.value], // 更新类别
   });
 },
